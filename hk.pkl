@@ -3,14 +3,19 @@ import "package://github.com/jdx/hk/releases/download/v2.2.0/hk@2.2.0#/Builtins.
 
 // The same four checks `mise run check` runs, so a commit that passes the
 // hook passes CI. Biome also formats: on pre-commit it fixes and restages.
+// The rest wait for Biome: on pre-commit it rewrites files, and a check
+// reading one halfway through that fails for no reason in the code.
+local afterBiome = List("biome")
+
 local linters = new Mapping {
     ["biome"] = Builtins.biome
-    ["tsc"] = Builtins.tsc
-    ["knip"] = Builtins.knip
+    ["tsc"] = (Builtins.tsc) { depends = afterBiome }
+    ["knip"] = (Builtins.knip) { depends = afterBiome }
     // Under two seconds and no network, so it can afford to run every commit.
     ["test"] {
         glob = List("src/**", "tests/**", "bunfig.toml", "package.json")
         check = "bun test --coverage"
+        depends = afterBiome
     }
 }
 
