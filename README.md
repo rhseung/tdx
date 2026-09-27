@@ -29,6 +29,19 @@ tdx install           # launchd 등록, 120초마다 실행
 eval "$(tdx init zsh)"
 ```
 
+TAB 완성은 한 번 설치합니다. 스크립트는 명령마다 선언한 zod 스키마에서 만들어지므로 하위 명령, 옵션,
+선택지(`--color`의 `auto always never`, `enable`의 기능 이름)가 그대로 완성됩니다. 템플릿 id 자리에서는
+Todoist에서 템플릿 목록을 읽어 `id -- 이름`으로 보여 줍니다.
+
+```bash
+tdx completion install   # ~/.local/share/zsh/site-functions/_tdx 에 씁니다. 새 셸부터 적용
+```
+
+이 디렉터리가 `fpath`에 있고 `compinit`보다 먼저 추가되어 있어야 합니다. 명령이나 옵션을 추가했다면
+다시 설치합니다. `eval "$(tdx init zsh)"`를 넣어 두었다면 `td recur` 같은 확장 명령도 완성되고,
+`td`의 원래 명령은 `td completion install`로 설치한 td 자체 완성을 그대로 씁니다. 이 경우 `eval` 줄은
+td 완성 설정보다 뒤에 둡니다.
+
 `gh`와 `td`에 로그인되어 있으면 따로 설정할 항목이 없습니다. 토큰을 따로 두고 싶으면
 fnox에 넣습니다. `fnox.toml`에 `TODOIST_API_TOKEN`과 `GITHUB_TOKEN`이 선언되어 있고,
 `fnox exec -- tdx ...`로 실행하면 그 값을 먼저 씁니다. launchd 에이전트는 fnox를 거치지

@@ -12,11 +12,18 @@ export const args = z.tuple([
 ]);
 
 // Plain text for eval, never a screen: nothing here is for a person to read.
-export default function Init() {
+type Props = { args: z.infer<typeof args> };
+
+export default function Init({ args: [shell] }: Props) {
   const { exit } = useApp();
   useEffect(() => {
-    process.stdout.write(initScript([...FEATURES.map((f) => f.name), "status"]));
+    process.stdout.write(
+      initScript(shell, [
+        ...FEATURES.map((f) => ({ name: f.name, description: f.description })),
+        { name: "status", description: "Show the agent and each feature's last run" },
+      ]),
+    );
     exit();
-  }, [exit]);
+  }, [shell, exit]);
   return null;
 }

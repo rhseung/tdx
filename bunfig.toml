@@ -4,6 +4,15 @@ coverageSkipTestFiles = true
 # Bun holds every file to this on its own, not the total, so it is a floor
 # under the least covered file: coverage can rise, never quietly drop.
 coverageThreshold = { lines = 0.75, functions = 0.70 }
-# Shells out to `td` and `gh` for a token; there is nothing to assert without
-# a real login.
-coveragePathIgnorePatterns = ["src/core/token.ts"]
+# Left to the end-to-end checks in a real terminal, not unit tests:
+# - token.ts, agent.ts: shell out to `td`/`gh` and `launchctl`
+# - commands/**: Pastel glue, a few lines each around the tested modules;
+#   loaded here only because completion reads their schemas
+# - recur/app.tsx, ui/pick.tsx: whole interactive screens, fzf included
+coveragePathIgnorePatterns = [
+  "src/core/token.ts",
+  "src/core/agent.ts",
+  "src/commands/**",
+  "src/recur/app.tsx",
+  "src/ui/pick.tsx",
+]
