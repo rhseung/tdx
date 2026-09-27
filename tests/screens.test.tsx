@@ -1,11 +1,12 @@
 // The pieces a command's screen is built from.
 
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { Text } from "ink";
 import { render } from "ink-testing-library";
 import { useEffect } from "react";
 import { AlternateScreen, type Close } from "../src/ui/alternate-screen.tsx";
 import type { OpRow } from "../src/ui/parts.tsx";
+import { PickThen } from "../src/ui/pick.tsx";
 import { printOps, Result, readIds } from "../src/ui/run.tsx";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 30));
@@ -86,4 +87,95 @@ test("ops print as change, verb, text", () => {
 test("ids given as arguments pass straight through", async () => {
   expect(await readIds(["a", "b"])).toEqual(["a", "b"]);
   expect(await readIds([])).toEqual([]);
+});
+
+describe("PickThen", () => {
+  const choices = [
+    { id: "T1", label: "화학 실험" },
+    { id: "T2", label: "퀴즈" },
+  ];
+  const DOWN = "\x1b[B";
+
+  test("one pick by name leads to its view, and the command ends", async () => {
+    let ended = false;
+    const view = render(
+      <PickThen
+        choices={choices}
+        prompt="Show which?"
+        done={() => (ended = true)}
+        then={([id]) => <Text>showing {id}</Text>}
+      />,
+    );
+    await tick();
+    expect(strip(view.lastFrame() ?? "")).toContain("퀴즈");
+    view.stdin.write(DOWN);
+    view.stdin.write("\r");
+    await tick();
+    expect(strip(view.lastFrame() ?? "")).toContain("showing T2");
+    expect(ended).toBe(true);
+  });
+
+  test("several can be marked and handed over together", async () => {
+    let picked: string[] = [];
+    const view = render(
+      <PickThen
+        choices={choices}
+        prompt="Delete which?"
+        multiple
+        done={() => {}}
+        then={(ids) => {
+          picked = ids;
+          return null;
+        }}
+      />,
+    );
+    await tick();
+    view.stdin.write(" ");
+    view.stdin.write(DOWN);
+    view.stdin.write(" ");
+    await tick();
+    view.stdin.write("\r");
+    await tick();
+    expect(picked).toEqual(["T1", "T2"]);
+  });
+
+  test("escape ends the command without picking", async () => {
+    let ended = false;
+    let called = false;
+    const view = render(
+      <PickThen
+        choices={choices}
+        prompt="Show which?"
+        done={() => (ended = true)}
+        then={() => {
+          called = true;
+          return null;
+        }}
+      />,
+    );
+    await tick();
+    view.stdin.write("\x1b");
+    await tick();
+    expect([ended, called]).toEqual([true, false]);
+  });
+
+  test("a failure after the pick shows as an error, with a failing exit code", async () => {
+    const before = process.exitCode;
+    const view = render(
+      <PickThen
+        choices={choices}
+        prompt="Delete which?"
+        done={() => {}}
+        then={async () => {
+          throw new Error("no network");
+        }}
+      />,
+    );
+    await tick();
+    view.stdin.write("\r");
+    await tick();
+    expect(strip(view.lastFrame() ?? "")).toContain("no network");
+    expect(process.exitCode).toBe(1);
+    process.exitCode = before ?? 0;
+  });
 });

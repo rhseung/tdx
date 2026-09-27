@@ -56,6 +56,7 @@ export const en = {
   },
   picker: {
     keys: "↑↓ move · enter pick · esc cancel",
+    multiKeys: "↑↓ move · space mark · enter done · esc cancel",
   },
   calendar: {
     title: (year: number, month: number) =>
@@ -238,7 +239,13 @@ export const en = {
     noTemplates: "no templates yet; make one with `tdx recur new`",
     noTemplate: (ids: string) => `no template ${ids}`,
     pickEdit: "Edit which template?",
+    pickShow: "Show which template?",
+    pickRm: "Delete which templates?",
     confirmDelete: (name: string) => `Delete the template "${name}"? Tasks it already made stay.`,
+    confirmDeleteMany: (names: string[]) =>
+      names.length === 1
+        ? `Delete the template "${names[0]}"? Tasks it already made stay.`
+        : `Delete ${names.length} templates (${names.join(", ")})? Tasks they already made stay.`,
     yesNo: "(y/n)",
     saving: "Saving",
     creating: "Creating",
@@ -282,6 +289,7 @@ export const en = {
       section: "section",
       made: "made",
       notes: "notes",
+      labels: "labels",
       subtasks: "subtasks",
       next: "next",
       error: "error",

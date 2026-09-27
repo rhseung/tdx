@@ -53,6 +53,7 @@ export const ko: Messages = {
   },
   picker: {
     keys: "↑↓ 이동 · enter 선택 · esc 취소",
+    multiKeys: "↑↓ 이동 · space 표시 · enter 확인 · esc 취소",
   },
   calendar: {
     title: (year, month) => `${year}년 ${month}월`,
@@ -214,7 +215,13 @@ export const ko: Messages = {
     noTemplates: "아직 템플릿이 없습니다. `tdx recur new`로 만드세요",
     noTemplate: (ids) => `템플릿이 없습니다: ${ids}`,
     pickEdit: "어느 템플릿을 고칠까요?",
+    pickShow: "어느 템플릿을 볼까요?",
+    pickRm: "어느 템플릿을 삭제할까요?",
     confirmDelete: (name) => `"${name}" 템플릿을 삭제할까요? 이미 만든 작업은 남습니다.`,
+    confirmDeleteMany: (names) =>
+      names.length === 1
+        ? `"${names[0]}" 템플릿을 삭제할까요? 이미 만든 작업은 남습니다.`
+        : `템플릿 ${names.length}개(${names.join(", ")})를 삭제할까요? 이미 만든 작업은 남습니다.`,
     yesNo: "(y/n)",
     saving: "저장하는 중",
     creating: "만드는 중",
@@ -258,6 +265,7 @@ export const ko: Messages = {
       section: "섹션",
       made: "만든 수",
       notes: "메모",
+      labels: "라벨",
       subtasks: "하위 작업",
       next: "다음",
       error: "오류",

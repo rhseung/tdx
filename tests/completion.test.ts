@@ -36,8 +36,9 @@ test("an enum argument offers its values", () => {
   expect(fn("_tdx_enable")).toContain("':feature:(gh recur nudge)'");
 });
 
-test("template ids come from Todoist, one or many", () => {
-  expect(fn("_tdx_recur_show")).toContain("':id:_tdx_templates'");
+test("template ids come from Todoist, one or many, and may be left out", () => {
+  // Optional: without one the command asks, by name.
+  expect(fn("_tdx_recur_show")).toContain("'::id:_tdx_templates'");
   expect(fn("_tdx_recur_rm")).toContain("'*:ids:_tdx_templates'");
 });
 

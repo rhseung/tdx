@@ -69,14 +69,21 @@ test("English stays the default", () => {
 
 // Walks a dictionary and renders every entry: a string as it is, a function
 // with small numbers for its arguments (every message takes counts, days,
-// names or flags, and 2 stands in for any of them).
+// names or flags, and 2 stands in for any of them; a list of names where
+// that fails).
 function render(value: unknown, path: string, out: [string, string][]) {
   if (typeof value === "string") out.push([path, value]);
   else if (typeof value === "function") {
-    out.push([
-      path,
-      String((value as (...a: number[]) => unknown)(...Array(value.length).fill(2))),
-    ]);
+    // A list of names where a message takes one (confirmDeleteMany).
+    const call = (arg: unknown) =>
+      (value as (...a: unknown[]) => unknown)(...Array(value.length).fill(arg));
+    let text: unknown;
+    try {
+      text = call(2);
+    } catch {
+      text = call(["a", "b"]);
+    }
+    out.push([path, String(text)]);
   } else if (Array.isArray(value)) {
     for (const [i, v] of value.entries()) render(v, `${path}[${i}]`, out);
   } else if (value && typeof value === "object") {

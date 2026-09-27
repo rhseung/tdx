@@ -1,12 +1,11 @@
 import { argument } from "pastel";
-import { useState } from "react";
 import { z } from "zod";
 import { t } from "../../i18n/index.ts";
 import { appOutcome, requireTerminal } from "../../recur/app.tsx";
 import { loadChecked } from "../../recur/feature.tsx";
 import { outputOf } from "../../ui/output.tsx";
-import { type Choice, Pick } from "../../ui/pick.tsx";
-import { type Outcome, Run } from "../../ui/run.tsx";
+import { PickThen } from "../../ui/pick.tsx";
+import { Run } from "../../ui/run.tsx";
 
 export const description = t.help.commands.recurEdit;
 
@@ -33,34 +32,15 @@ export default function Edit({ args: [id] }: Props) {
         // Pick first, then the form: the pick is its own screen, and once it
         // has an answer it hands over to the app.
         return (done) => (
-          <Picked
+          <PickThen
             choices={choices}
-            onCancel={done}
-            then={(picked) => appOutcome(data, { kind: "form", id: picked }, true)}
+            prompt={t.recur.pickEdit}
+            preview="tdx recur show {1}"
+            done={done}
+            then={([picked]) => appOutcome(data, { kind: "form", id: picked ?? "" }, true)}
           />
         );
       }}
-    />
-  );
-}
-
-function Picked({
-  choices,
-  onCancel,
-  then,
-}: {
-  choices: Choice[];
-  onCancel: () => void;
-  then: (id: string) => Outcome;
-}) {
-  const [next, setNext] = useState<Outcome | null>(null);
-  if (next) return typeof next === "function" ? next(onCancel) : next;
-  return (
-    <Pick
-      choices={choices}
-      prompt={t.recur.pickEdit}
-      preview="tdx recur show {1}"
-      onPick={(picked) => (picked ? setNext(() => then(picked)) : onCancel())}
     />
   );
 }
