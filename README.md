@@ -6,6 +6,7 @@ Todoist를 쓰면서 부족했던 기능을 채우는 개인 툴킷입니다. `t
 | 기능 | 명령 | 하는 일 |
 | --- | --- | --- |
 | GitHub 동기화 | `tdx gh sync` | 나에게 assign 된 issue와 PR을 Todoist로 옮깁니다 |
+| 반복 과제 | `tdx recur` | 매주 금요일 마감 같은 과제를 회차마다 deadline 이 달린 task로 만듭니다 |
 
 launchd 에이전트가 `tdx run`을 120초마다 호출해서 켜 둔 기능을 모두 한 번씩 돌립니다.
 한 기능이 실패해도 나머지는 계속 돕니다.
@@ -35,6 +36,11 @@ tdx run --dry-run --only gh # 계획만 보기, 기능 골라 돌리기
 tdx gh sync --dry-run       # 실행 계획만 출력하고 아무것도 쓰지 않음
 tdx gh sync --force         # 대량 완료 가드 해제
 tdx gh sync --grace 14      # 빈 section 유예 기간 (기본 7일)
+tdx recur                   # 반복 과제 템플릿 목록
+tdx recur preview [id]      # 회차별 deadline, due, 생성일, 상태
+tdx recur show <id>         # 템플릿 하나의 규칙과 다음 회차
+tdx recur run --dry-run     # 지금 만들 회차 확인
+tdx recur rm <id...>        # 템플릿 삭제 (이미 만든 task는 남음)
 tdx status                  # 에이전트 상태와 기능별 마지막 실행 결과
 tdx enable gh / disable gh  # tdx run 에 넣고 빼기
 tdx install / uninstall     # launchd 등록과 해제 (--interval 로 주기 조절)
@@ -57,6 +63,52 @@ tdx install / uninstall     # launchd 등록과 해제 (--interval 로 주기 �
 
 평문은 fzf에 그대로 넘길 수 있게 맞춰 두었습니다. `--header`는 머리행을 한 줄 붙이므로
 `fzf --header-lines=1`과 함께 쓰고, `--color always`는 `fzf --ansi`에서 색을 살립니다.
+id를 받는 명령에 `-`를 주면 stdin에서 한 줄에 하나씩 읽고, 각 줄의 첫 열만 씁니다.
+
+```bash
+tdx recur --color always | fzf --ansi -m --preview 'tdx recur show {1}' | tdx recur rm -
+```
+
+## 반복 과제
+
+Todoist의 deadline에는 반복 규칙이 없습니다. 반복은 due에만 붙고, 그마저도 이번 회차를
+완료해야 다음 회차가 생깁니다. 그런데 과제는 지난주 것을 냈는지와 상관없이 일정대로
+나옵니다. 그래서 이 기능은 완료가 아니라 달력을 기준으로 움직입니다. 규칙에 적힌
+deadline마다 그보다 `lead`일 앞선 날에 task를 하나씩 만듭니다.
+
+규칙은 Todoist의 `Templates` project에 둡니다. 그 안의 최상위 task 하나가 템플릿 하나입니다.
+due가 없으므로 Today나 Upcoming에는 뜨지 않고, 평범한 task라서 휴대폰 앱에서도 규칙을
+고칠 수 있습니다.
+
+| 템플릿의 | 쓰임 |
+| --- | --- |
+| 제목 | 회차 task 이름. `{n}`은 회차 번호, `{date}`는 마감일(`10/2`)로 바뀝니다 |
+| 설명 | 아래 규칙. `---` 아래에 적은 내용은 회차 task의 설명으로 복사됩니다 |
+| 하위 task | 회차마다 그대로 복제됩니다. 제목의 `{n}`도 바뀝니다 |
+| label, 우선순위 | 그대로 복사됩니다 |
+
+```
+every: fri            # 요일. 월/화/수/목/금/토/일도 됩니다. `2 weeks mon, thu`, `month 15`
+from: 2026-09-04      # 첫 회차 마감일
+until: 2026-12-18     # 마지막 날 (선택)
+skip: 2026-10-23, 2026-10-30   # 휴강, 시험 주간 (선택)
+lead: 5d              # 마감 며칠 전에 만들지 (기본 7d)
+due: -2d              # 마감 기준 due (선택). 이 날 Today에 뜹니다
+project: 화학실험      # 만들 곳. 없으면 Inbox
+---
+실험복 지참
+```
+
+회차 번호는 건너뛴 주를 빼고 셉니다. 휴강한 주가 번호를 차지하지 않으므로 "3주차"가 세
+번째 실험과 맞아떨어집니다.
+
+- 이미 만든 회차는 다시 만들지 않습니다. 만든 task를 지워도 마찬가지입니다.
+- 마감이 지난 회차는 만들지 않습니다. 학기 중간에 템플릿을 써도 지난주 과제가 쏟아지지
+  않습니다.
+- 맥이 며칠 잠들어 있다가 깨어나면 그사이 만들었어야 할 회차를 한꺼번에 만듭니다.
+- 규칙을 잘못 적으면 그 템플릿에 무엇이 틀렸는지 comment를 한 번 답니다. 나머지 템플릿은
+  계속 돕니다.
+- 한 번에 30개 넘게 만들려는 템플릿은 `lead` 오타로 보고 멈춥니다.
 
 ## GitHub 동기화
 
@@ -158,6 +210,7 @@ state 이므로 완료로 남습니다.
 | 파일 | 내용 |
 | --- | --- |
 | `github.json` | GitHub id와 Todoist id의 짝 |
+| `recur.json` | 템플릿별로 이미 만든 회차의 마감일과 task id, 보고한 오류 |
 | `runs.json` | 기능별 마지막 실행 시각과 결과. `tdx status`가 읽습니다 |
 | `config.json` | `tdx disable`로 끈 기능 목록 |
 

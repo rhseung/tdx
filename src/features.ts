@@ -4,6 +4,7 @@
 // completion guard), and nothing after it depends on it.
 
 import { syncGithub } from "./github/feature.tsx";
+import { runRecur } from "./recur/feature.tsx";
 import type { OpRow } from "./ui/parts.tsx";
 import type { Progress } from "./ui/progress.tsx";
 
@@ -23,5 +24,10 @@ export const FEATURES: Feature[] = [
     name: "gh",
     description: "mirror GitHub issues and PRs assigned to me",
     run: (progress, { dryRun }) => syncGithub(progress, { dryRun }),
+  },
+  {
+    name: "recur",
+    description: "make recurring assignments from the Templates project",
+    run: (progress, { dryRun }) => runRecur(progress, { dryRun }),
   },
 ];

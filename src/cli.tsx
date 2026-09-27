@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { Command, Option } from "commander";
+import { Command } from "commander";
 import { Box, Text } from "ink";
 import pkg from "../package.json" with { type: "json" };
 import * as agent from "./core/agent.ts";
@@ -7,62 +7,13 @@ import { disabled, lastRuns, recordRun, setEnabled } from "./core/features.ts";
 import { FEATURES } from "./features.ts";
 import { syncGithub } from "./github/feature.tsx";
 import { GRACE_DAYS } from "./github/reconcile.ts";
-import {
-  type Output,
-  type OutputFlags,
-  outputOf,
-  printJson,
-  printStatic,
-  showTable,
-} from "./ui/output.tsx";
-import { countChanges, ErrorBox, Fields, OpList, type OpRow, Summary } from "./ui/parts.tsx";
+import { registerRecur } from "./recur/commands.tsx";
+import { fail, printOps, Result, withOutput } from "./ui/command.tsx";
+import { type OutputFlags, outputOf, printJson, printStatic, showTable } from "./ui/output.tsx";
+import { Fields, type OpRow } from "./ui/parts.tsx";
 import { withProgress } from "./ui/progress.tsx";
 import { color, symbol } from "./ui/theme.ts";
 import { ago } from "./ui/time.ts";
-
-// Every command that prints takes the same four switches, so a script or an
-// fzf binding can rely on them without reading each command's help.
-function withOutput(command: Command): Command {
-  return command
-    .option("--json", "print JSON instead of a table")
-    .addOption(
-      new Option("--color <when>", "colour in plain output").choices(["auto", "always", "never"]),
-    )
-    .option("--header", "put a header line on plain output (fzf --header-lines=1)")
-    .option("--no-pager", "print long tables instead of opening a scrolling view");
-}
-
-function fail(output: Output, title: string, error: unknown): never {
-  const message = error instanceof Error ? error.message : String(error);
-  if (output.mode === "ink") printStatic(<ErrorBox title={title} message={message} />);
-  else process.stderr.write(`${title}: ${message}\n`);
-  process.exit(1);
-}
-
-function Result({ ops, summary, dryRun }: { ops: OpRow[]; summary?: string; dryRun?: boolean }) {
-  if (!ops.length) {
-    return (
-      <Text color={color.ok}>
-        {symbol.ok} {summary ?? "nothing to change"}
-      </Text>
-    );
-  }
-  return (
-    <Box flexDirection="column" gap={1}>
-      <OpList ops={ops} />
-      <Summary
-        parts={[
-          ...(dryRun ? [["dry run", color.warn] as [string, string]] : []),
-          ...countChanges(ops),
-        ]}
-      />
-    </Box>
-  );
-}
-
-function printOps(ops: OpRow[]) {
-  for (const op of ops) process.stdout.write(`${op.change}\t${op.verb}\t${op.text}\n`);
-}
 
 const program = new Command("tdx")
   .description("A personal Todoist toolkit that fills the gaps td leaves.")
@@ -139,6 +90,8 @@ withOutput(
     fail(output, "gh sync failed", error);
   }
 });
+
+registerRecur(program);
 
 program
   .command("install")
