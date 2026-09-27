@@ -249,6 +249,12 @@ function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
+// Todoist hands labels back in its own order, not the order they were written
+// in, so comparing as lists would rewrite every multi-label task on every poll.
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  return sameList([...a].sort(), [...b].sort());
+}
+
 function taskOps(
   items: Item[],
   snap: Snapshot,
@@ -279,7 +285,7 @@ function taskOps(
       task.description !== description(item) ||
       task.priority !== priority(item) ||
       task.deadline !== item.deadline ||
-      !sameList(task.labels, want)
+      !sameSet(task.labels, want)
     ) {
       ops.push({
         kind: "UpdateTask",

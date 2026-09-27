@@ -336,6 +336,13 @@ test("an issue turned PR swaps its label and keeps manual ones", () => {
   expect(at(ops, 0, "UpdateTask").labels).toEqual(["waiting", LABEL_PR]);
 });
 
+test("labels read back in another order are not a change", () => {
+  const one = item({ blockedBy: [ref("I_x", 5)] });
+  const s = settled(one);
+  s.tasks[one.ghId] = { ...(s.tasks[one.ghId] as TaskInfo), labels: [LABEL_BLOCKED, LABEL_ISSUE] };
+  expect(reconcile([one], s)).toEqual([]);
+});
+
 describe("dependencies", () => {
   const order = (ops: Op[]) => only(ops, "ReorderTasks").map((op) => op.ghIds);
   const firstOrder = (ops: Op[]) => order(ops)[0] ?? [];
