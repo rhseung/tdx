@@ -1,0 +1,10 @@
+default_provider = "1password"
+
+[providers.1password]
+type = "1password"
+account = "https://my.1password.com/"
+
+# Both are optional: without them the token is borrowed from `td` and `gh`.
+[secrets]
+TODOIST_API_TOKEN = { description = "Todoist API token. falls back to `td auth token view`", if_missing = "ignore" }
+GITHUB_TOKEN = { description = "GitHub token. falls back to `gh auth token`", if_missing = "ignore" }
