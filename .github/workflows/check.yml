@@ -1,0 +1,21 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # The launchd agent and the shell integration are macOS only, but nothing
+    # the checks run is: tests touch no network and no launchctl.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Installs the versions pinned in mise.toml, so CI runs what runs locally.
+      - uses: jdx/mise-action@v4
+      - run: bun install --frozen-lockfile
+      - run: mise run check

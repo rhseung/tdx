@@ -1,18 +1,24 @@
 [tools]
 bun = "1.4.2"
 fnox = "1.35.2"
+hk = "2.2.0"
+pkl = "0.32.1"
+
+# Local binaries (biome, tsc, knip) for tasks, hk and the shell alike.
+[env]
+_.path = ["./node_modules/.bin"]
 
 [tasks.test]
 run = "bun test --coverage"
 
 [tasks.lint]
-run = "bunx biome check --error-on-warnings ."
+run = "biome check --error-on-warnings ."
 
 [tasks.typecheck]
-run = "bunx tsc --noEmit"
+run = "tsc --noEmit"
 
 [tasks.unused]
-run = "bunx knip --no-progress"
+run = "knip --no-progress"
 
 [tasks.check]
 depends = ["test", "lint", "typecheck", "unused"]

@@ -275,10 +275,25 @@ due가 비어 있으면 due를 오늘로 넣습니다. 이미 마감이 지난 t
 ## 개발
 
 ```bash
+mise install        # bun, fnox, hk, pkl
 bun install
-mise run check      # bun test, biome, tsc. 네트워크를 사용하지 않음
-bunx biome check --write .
+hk install --mise   # 커밋할 때 검사 (이 레포에만)
+mise run check      # 테스트, lint, 타입, 미사용 코드. 네트워크를 사용하지 않음
+biome check --write .
 ```
+
+`mise run check`가 돌리는 네 가지를 pre-commit hook(hk)과 GitHub Actions도 똑같이 돌립니다.
+
+| 검사 | 도구 | 잡는 것 |
+| --- | --- | --- |
+| 테스트 | `bun test --coverage` | 동작. 파일마다 줄 75%, 함수 70% 아래로 떨어지면 실패합니다 |
+| lint, 포맷 | Biome | await 빠진 promise, 빠진 switch case, 경고도 실패로 칩니다 |
+| 타입 | tsc | `exactOptionalPropertyTypes` 등 엄격 옵션을 켜 두었습니다 |
+| 미사용 코드 | knip | 쓰이지 않는 파일, export, 의존성 |
+
+Todoist에 쓰는 코드는 `tests/fake.ts`의 메모리 위 가짜 Todoist로 검사합니다. 응답은 실제 스키마를
+거치므로 가짜가 실제 API와 어긋나면 테스트가 실패합니다. 테스트마다 state 디렉터리를 새로 만들어서
+checkout의 `state/`는 건드리지 않습니다.
 
 코드를 고치기 전에 launchd 를 먼저 내립니다.
 

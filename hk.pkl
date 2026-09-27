@@ -1,0 +1,17 @@
+amends "package://github.com/jdx/hk/releases/download/v2.2.0/hk@2.2.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.2.0/hk@2.2.0#/Builtins.pkl"
+
+// The same four checks `mise run check` runs, so a commit that passes the
+// hook passes CI. Biome also formats: on pre-commit it fixes and restages.
+local linters = new Mapping {
+    ["biome"] = Builtins.biome
+    ["tsc"] = Builtins.tsc
+    ["knip"] = Builtins.knip
+    // Under two seconds and no network, so it can afford to run every commit.
+    ["test"] {
+        glob = List("src/**", "tests/**", "bunfig.toml", "package.json")
+        check = "bun test --coverage"
+    }
+}
+
+steps = linters
