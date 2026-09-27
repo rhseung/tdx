@@ -7,7 +7,7 @@ import { t } from "../i18n/index.ts";
 import type { OpRow } from "../ui/parts.tsx";
 import type { Progress } from "../ui/progress.tsx";
 import { applyOps, directory, loadState, openTasks, readWorkspace } from "./io.ts";
-import { type Checked, check, plan, type RecurOp, type RecurState, relocated } from "./plan.ts";
+import { type Checked, check, plan, type RecurOp, type RecurState, toSync } from "./plan.ts";
 import {
   appearsOn,
   describeEvery,
@@ -33,7 +33,16 @@ function describeRecurOp(op: RecurOp): OpRow | null {
       return { change: "meta", verb: "fixed", text: op.templateId };
     case "MoveInstance":
       return { change: "move", verb: "task", text: op.content };
+    case "SyncInstance":
+      return Object.keys(op.patch).length
+        ? { change: "update", verb: "task", text: op.content }
+        : null;
+    case "DeleteInstance":
+      return { change: "remove", verb: "task", text: op.content };
+    case "KeepInstance":
+      return { change: "meta", verb: "kept", text: `${op.content}  ${t.recur.kept}` };
     case "SetPlace":
+    case "SetSynced":
       return null;
   }
 }
@@ -57,11 +66,9 @@ export async function runRecur(
     workspace.templates.filter((t) => !only || only.has(t.id)),
     names,
   );
-  // Where the made tasks stand is looked up only for templates that now point
-  // somewhere else, so an ordinary run costs no extra call.
-  const moving = relocated(checked, state, names.inboxId);
+  const moving = toSync(checked, state, names.inboxId);
   const open = moving.length
-    ? await progress.step(t.steps.readMoving, () =>
+    ? await progress.step(t.steps.readMade, () =>
         openTasks(
           api,
           moving.flatMap((c) => Object.values(state.created[c.template.id] ?? {})),

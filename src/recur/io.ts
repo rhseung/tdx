@@ -120,6 +120,12 @@ export async function openTasks(api: Api, ids: string[]): Promise<Map<string, Op
         projectId: task.projectId,
         sectionId: task.sectionId,
         content: task.content,
+        description: task.description,
+        priority: task.priority,
+        labels: task.labels,
+        deadline: task.deadline,
+        due: task.due,
+        noteCount: task.noteCount,
       });
     }
   }
@@ -163,6 +169,14 @@ export async function applyOps(
             ...(task.due ? { due_date: task.due } : {}),
           });
           state.created[op.templateId] = { ...state.created[op.templateId], [op.deadline]: id };
+          state.written[id] = {
+            content: task.content,
+            description: task.description,
+            priority: task.priority,
+            labels: task.labels,
+            deadline: task.deadline,
+            due: task.due,
+          };
           for (const sub of op.subtasks) {
             await createTask(api, { ...sub, parent_id: id });
           }
@@ -188,6 +202,31 @@ export async function applyOps(
         case "SetPlace":
           state.placed[op.templateId] = op.place;
           break;
+        case "SyncInstance": {
+          const { due, ...rest } = op.patch;
+          const body: Record<string, unknown> = { ...rest };
+          // A due date is cleared by saying so; a null would be ignored.
+          if (due !== undefined)
+            Object.assign(body, due ? { due_date: due } : { due_string: "no date" });
+          if (Object.keys(body).length) await api.post(`/tasks/${op.taskId}`, body);
+          state.written[op.taskId] = op.written;
+          break;
+        }
+        case "DeleteInstance": {
+          await api.delete(`/tasks/${op.taskId}`);
+          // Forgotten, not remembered as deleted: this tool removed it, so
+          // should the week come back to the rule, it is made again.
+          const made = { ...state.created[op.templateId] };
+          delete made[op.deadline];
+          state.created[op.templateId] = made;
+          delete state.written[op.taskId];
+          break;
+        }
+        case "KeepInstance":
+          break;
+        case "SetSynced":
+          state.synced[op.templateId] = op.hash;
+          break;
       }
       onOp(op, index);
     }
@@ -201,8 +240,10 @@ export async function applyOps(
 // forgetting what it made would make the open weeks a second time.
 export async function deleteTemplate(api: Api, state: RecurState, id: string): Promise<void> {
   await api.delete(`/tasks/${id}`);
+  for (const taskId of Object.values(state.created[id] ?? {})) delete state.written[taskId];
   delete state.created[id];
   delete state.reported[id];
   delete state.placed[id];
+  delete state.synced[id];
   saveState(state);
 }

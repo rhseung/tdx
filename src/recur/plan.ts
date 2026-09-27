@@ -6,7 +6,15 @@
 // out on schedule whether last week's was handed in or not.
 
 import type { Day } from "../core/day.ts";
-import { appearsOn, dueFor, occurrences, parse, type Rule, title } from "./rule.ts";
+import {
+  appearsOn,
+  dueFor,
+  type Occurrence,
+  occurrences,
+  parse,
+  type Rule,
+  title,
+} from "./rule.ts";
 
 export interface TemplateTask {
   id: string;
@@ -28,9 +36,49 @@ export interface RecurState {
   // moves anything, and only tasks still sitting there: a task moved by hand
   // was placed on purpose.
   placed: Record<string, Place>;
+  // template id -> hash of the template as last applied to its open tasks.
+  // A template that no longer matches is what brings those tasks up to date.
+  synced: Record<string, string>;
+  // task id -> the fields this tool last wrote. A field Todoist still shows
+  // with that value is ours to rewrite; one that differs was changed by hand.
+  written: Record<string, Written>;
 }
 
-export const emptyRecurState = (): RecurState => ({ created: {}, reported: {}, placed: {} });
+export const emptyRecurState = (): RecurState => ({
+  created: {},
+  reported: {},
+  placed: {},
+  synced: {},
+  written: {},
+});
+
+export interface Written {
+  content: string;
+  description: string;
+  priority: number;
+  labels: string[];
+  deadline: Day | null;
+  due: Day | null;
+}
+
+// What a template edit can change on a task already made. The deadline is
+// not among them -- it is what ties a task to its week -- but it still counts
+// when asking whether a task was changed by hand.
+const SYNCED = ["content", "description", "priority", "labels", "due"] as const;
+type SyncedField = (typeof SYNCED)[number];
+type Patch = Partial<Pick<Written, SyncedField>>;
+
+const sameValue = (a: unknown, b: unknown) =>
+  Array.isArray(a) && Array.isArray(b)
+    ? // Todoist returns labels in its own order.
+      JSON.stringify([...a].sort()) === JSON.stringify([...b].sort())
+    : a === b;
+
+// Every field a template edit can change, so changing any of them resyncs.
+export const templateHash = (template: TemplateTask) =>
+  hash(
+    JSON.stringify([template.content, template.description, template.priority, template.labels]),
+  );
 
 // Where a task goes. Always a real project id, the Inbox included, so two
 // places compare by value: "no project" and "the Inbox" are the same place.
@@ -71,6 +119,14 @@ export type RecurOp =
       subtasks: NewTask[];
     }
   | { kind: "MoveInstance"; templateId: string; taskId: string; content: string; to: Place }
+  // Brings an open task in line with an edited template. An empty patch is
+  // bookkeeping only: what is recorded as written.
+  | { kind: "SyncInstance"; taskId: string; content: string; patch: Patch; written: Written }
+  // A week the edited rule no longer has, left untouched since it was made.
+  | { kind: "DeleteInstance"; templateId: string; deadline: Day; taskId: string; content: string }
+  // A week the edited rule no longer has, but changed by hand: kept, and said.
+  | { kind: "KeepInstance"; templateId: string; taskId: string; content: string }
+  | { kind: "SetSynced"; templateId: string; hash: string }
   // Bookkeeping only: where the template's tasks now go.
   | { kind: "SetPlace"; templateId: string; place: Place }
   | { kind: "ReportError"; templateId: string; content: string; hash: string; message: string }
@@ -123,19 +179,34 @@ export function check(templates: TemplateTask[], directory: Directory): Checked[
 const previousPlace = (state: RecurState, templateId: string, inboxId: string): Place =>
   state.placed[templateId] ?? { projectId: inboxId, sectionId: null };
 
-// Templates whose tasks are to go somewhere new: only these need their
-// existing tasks looked up, so a run where nothing moved costs no extra call.
-export function relocated(checked: Checked[], state: RecurState, inboxId: string): Checked[] {
+const needsSync = (c: Checked, state: RecurState, inboxId: string) =>
+  c.place !== null &&
+  (state.synced[c.template.id] !== templateHash(c.template) ||
+    !samePlace(c.place, previousPlace(state, c.template.id, inboxId)));
+
+// Templates edited, or pointed somewhere new, since their tasks were last
+// brought in line. Only these need their tasks looked up, so an ordinary run
+// costs no extra call.
+export function toSync(checked: Checked[], state: RecurState, inboxId: string): Checked[] {
   return checked.filter(
-    ({ template, place }) => place && !samePlace(place, previousPlace(state, template.id, inboxId)),
+    (c) => needsSync(c, state, inboxId) && Object.keys(state.created[c.template.id] ?? {}).length,
   );
 }
 
-// A task this tool made and nobody finished yet, and where it stands; a
-// finished task stays where it was finished.
-export interface OpenTask extends Place {
-  content: string;
+// A task this tool made and nobody finished yet, as Todoist has it now. A
+// finished task is left as it was finished.
+export interface OpenTask extends Place, Written {
+  noteCount: number;
 }
+
+const writtenOf = (task: OpenTask): Written => ({
+  content: task.content,
+  description: task.description,
+  priority: task.priority,
+  labels: task.labels,
+  deadline: task.deadline,
+  due: task.due,
+});
 
 export function plan(
   checked: Checked[],
@@ -165,6 +236,8 @@ export function plan(
 
     const made = state.created[template.id] ?? {};
     const previous = previousPlace(state, template.id, inboxId);
+    const syncing = needsSync({ template, rule, notes, errors, place }, state, inboxId);
+    const synced = syncing ? syncOpen(template, rule, notes, made, state, open) : [];
     const moves: RecurOp[] = [];
     if (!samePlace(place, previous)) {
       for (const taskId of Object.values(made)) {
@@ -213,10 +286,88 @@ export function plan(
       continue;
     }
     if (reported) ops.push({ kind: "ClearError", templateId: template.id });
-    ops.push(...moves, ...due);
+    ops.push(...synced, ...moves, ...due);
+    if (syncing)
+      ops.push({ kind: "SetSynced", templateId: template.id, hash: templateHash(template) });
     const recorded = state.placed[template.id];
     if (!recorded || !samePlace(recorded, place)) {
       ops.push({ kind: "SetPlace", templateId: template.id, place });
+    }
+  }
+  return ops;
+}
+
+// The open tasks of an edited template, brought in line field by field.
+//
+// A task seen for the first time -- made before this was tracked -- is taken
+// as it stands, as if this tool had written exactly that.
+function syncOpen(
+  template: TemplateTask,
+  rule: Rule,
+  notes: string,
+  made: Record<Day, string>,
+  state: RecurState,
+  open: Map<string, OpenTask>,
+): RecurOp[] {
+  const days = Object.keys(made).sort();
+  const last = days.at(-1);
+  if (!last) return [];
+  const weeks = new Map<Day, Occurrence>();
+  for (const occurrence of occurrences(rule)) {
+    if (occurrence.deadline > last) break;
+    if (!occurrence.skipped) weeks.set(occurrence.deadline, occurrence);
+  }
+
+  const ops: RecurOp[] = [];
+  for (const deadline of days) {
+    const taskId = made[deadline] as string;
+    const now = open.get(taskId);
+    if (!now) continue;
+    const wrote = state.written[taskId] ?? writtenOf(now);
+    const byHand = (field: keyof Written) => !sameValue(now[field], wrote[field]);
+    const week = weeks.get(deadline);
+    if (!week) {
+      const touched = now.noteCount > 0 || (Object.keys(wrote) as (keyof Written)[]).some(byHand);
+      ops.push(
+        touched
+          ? { kind: "KeepInstance", templateId: template.id, taskId, content: now.content }
+          : {
+              kind: "DeleteInstance",
+              templateId: template.id,
+              deadline,
+              taskId,
+              content: now.content,
+            },
+      );
+      continue;
+    }
+    const want: Pick<Written, SyncedField> = {
+      content: title(template.content, week),
+      description: notes,
+      priority: template.priority,
+      labels: template.labels,
+      due: dueFor(rule, deadline),
+    };
+    const patch: Record<string, unknown> = {};
+    const next: Record<string, unknown> = { ...wrote };
+    for (const field of SYNCED) {
+      if (byHand(field)) continue; // left as the person set it, and still marked as theirs
+      next[field] = want[field];
+      if (!sameValue(want[field], now[field])) patch[field] = want[field];
+    }
+    const written = next as unknown as Written;
+    const recorded = state.written[taskId];
+    const changed =
+      !recorded ||
+      (Object.keys(written) as (keyof Written)[]).some((f) => !sameValue(written[f], recorded[f]));
+    if (Object.keys(patch).length || changed) {
+      ops.push({
+        kind: "SyncInstance",
+        taskId,
+        content: want.content,
+        patch: patch as Patch,
+        written,
+      });
     }
   }
   return ops;

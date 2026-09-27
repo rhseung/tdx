@@ -35,6 +35,7 @@ export const en = {
     broken: "broken",
     fixed: "fixed",
     today: "today",
+    kept: "kept",
   } as Record<string, string>,
   ago: (seconds: number) => {
     if (seconds < 60) return `${seconds}s ago`;
@@ -145,7 +146,7 @@ export const en = {
     readGithub: "Read GitHub",
     readTodoist: "Read Todoist",
     readTemplates: "Read templates",
-    readMoving: "Read tasks to move",
+    readMade: "Read tasks made",
     readDeadlines: "Read deadlines",
     plan: "Plan",
     apply: "Apply",
@@ -233,6 +234,7 @@ export const en = {
     emptyList: "No templates yet. Add one with `tdx recur new`.",
     noProject: (name: string) => `No ${name} project yet. \`tdx recur new\` makes it.`,
     noValidRule: "no templates with a valid rule",
+    kept: "(no longer in the rule; kept, since it was changed by hand)",
     noTemplates: "no templates yet; make one with `tdx recur new`",
     noTemplate: (ids: string) => `no template ${ids}`,
     pickEdit: "Edit which template?",

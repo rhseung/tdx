@@ -9,16 +9,27 @@ import { today } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
 import { t } from "../i18n/index.ts";
 import { AlternateScreen } from "../ui/alternate-screen.tsx";
+import { opLine } from "../ui/parts.tsx";
+import { Progress } from "../ui/progress.tsx";
 import type { Outcome } from "../ui/run.tsx";
 import { StickyTable } from "../ui/table.tsx";
 import { color, symbol } from "../ui/theme.ts";
 import { occurrenceColumns, templateColumns } from "./columns.ts";
 import { blankDraft, type Draft, draftOf, saveDraft } from "./draft.ts";
-import { loadChecked, occurrenceRows, type TemplateRow, templateRows } from "./feature.tsx";
+import {
+  loadChecked,
+  occurrenceRows,
+  runRecur,
+  type TemplateRow,
+  templateRows,
+} from "./feature.tsx";
 import { Form } from "./form.tsx";
 import { deleteTemplate, ensureTemplatesProject, sectionNames, TEMPLATES_PROJECT } from "./io.ts";
 
 export type Data = Awaited<ReturnType<typeof loadChecked>>;
+
+// Steps are not drawn inside the app; only the result is.
+const QUIET = { mode: "json", color: false, header: false, pager: false } as const;
 
 export type Screen =
   | { kind: "list" }
@@ -87,7 +98,17 @@ function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
           busy(existing ? t.recur.saving : t.recur.creating, async () => {
             const templatesProjectId = await ensureTemplatesProject(api, data.workspace);
             const saved = await saveDraft(api, draft, { templatesProjectId, existing });
-            return `${symbol.ok} ${saved.created ? t.recur.created(draft.title) : t.recur.saved(draft.title)}`;
+            const done = `${symbol.ok} ${saved.created ? t.recur.created(draft.title) : t.recur.saved(draft.title)}`;
+            // Applied now rather than on the agent's next pass, so what the
+            // edit did to the weeks already made -- and which it left, having
+            // been changed by hand -- is seen while the change is fresh.
+            try {
+              const result = await runRecur(new Progress(QUIET), { ids: [saved.id], api });
+              return [done, ...result.ops.map((op) => `  ${opLine(op)}`)].join("\n");
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              return `${done}\n${symbol.fail} ${message}`;
+            }
           })
         }
       />
@@ -131,7 +152,7 @@ function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
         title={t.recur.title}
         columns={templateColumns}
         rows={rows}
-        reserved={flash ? 1 : 0}
+        reserved={flash ? flash.split("\n").length : 0}
         empty={t.recur.emptyApp}
         hint={t.recur.listHint}
         onQuit={close}

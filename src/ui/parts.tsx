@@ -60,6 +60,9 @@ const MARK: Record<Change, string> = {
   meta: "·",
 };
 
+// One change as a line of text, for places that print rather than draw.
+export const opLine = (op: OpRow) => `${MARK[op.change]} ${t.verbs[op.verb] ?? op.verb} ${op.text}`;
+
 // A plan, grouped by what kind of change it makes, so a dry run reads as
 // "3 created, 1 completed" before any single line has to be read.
 export function OpList({ ops, limit = 40 }: { ops: OpRow[]; limit?: number }) {

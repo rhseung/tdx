@@ -49,6 +49,7 @@ export interface Task {
   due: Day | null;
   isRecurring: boolean;
   childOrder: number;
+  noteCount: number;
 }
 
 export function toTask(raw: z.output<typeof TodoistTask>): Task {
@@ -65,6 +66,7 @@ export function toTask(raw: z.output<typeof TodoistTask>): Task {
     due: raw.due ? raw.due.date.slice(0, 10) : null,
     isRecurring: raw.due?.is_recurring ?? false,
     childOrder: raw.child_order,
+    noteCount: raw.note_count,
   };
 }
 

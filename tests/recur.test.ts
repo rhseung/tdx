@@ -11,8 +11,22 @@ import {
   type RecurOp,
   type RecurState,
   type TemplateTask,
+  templateHash,
+  type Written,
 } from "../src/recur/plan.ts";
 import { format, occurrences, parse, type Rule, take, title } from "../src/recur/rule.ts";
+
+const openTask = (content: string, deadline: string): OpenTask => ({
+  projectId: "INBOX",
+  sectionId: null,
+  content,
+  description: "",
+  priority: 1,
+  labels: [],
+  deadline,
+  due: null,
+  noteCount: 0,
+});
 
 // A Friday, the chemistry lab's deadline, early in the autumn semester.
 const TODAY = "2026-09-07"; // Monday
@@ -197,9 +211,8 @@ describe("plan", () => {
 
   test("a deadline already made is never made again, even if its task was deleted", () => {
     const state: RecurState = {
+      ...emptyRecurState(),
       created: { T1: { "2026-09-11": "gone" } },
-      reported: {},
-      placed: {},
     };
     expect(creates(plan(checked(LAB), state, TODAY, "INBOX"))).toHaveLength(0);
   });
@@ -229,7 +242,13 @@ describe("plan", () => {
     let ops = plan(checked(broken), emptyRecurState(), TODAY, "INBOX");
     expect(ops.map((op) => op.kind)).toEqual(["ReportError"]);
 
-    const state: RecurState = { created: {}, reported: { T1: hash(broken) }, placed: {} };
+    const state: RecurState = {
+      created: {},
+      reported: { T1: hash(broken) },
+      placed: {},
+      synced: {},
+      written: {},
+    };
     expect(plan(checked(broken), state, TODAY, "INBOX")).toEqual([]);
 
     ops = plan(checked(LAB), state, TODAY, "INBOX");
@@ -268,10 +287,10 @@ describe("plan", () => {
       ops.flatMap((op) => (op.kind === "CreateInstance" ? [op.task.place] : []));
     const inProject = `${LAB}\nsection: 실험 보고서`;
     const open = (at: Partial<OpenTask> = {}): Map<string, OpenTask> =>
-      new Map([["X1", { projectId: "INBOX", sectionId: null, content: "화학 실험 2주차", ...at }]]);
+      new Map([["X1", { ...openTask("화학 실험 2주차", "2026-09-11"), ...at }]]);
     const made = (placed: RecurState["placed"] = {}): RecurState => ({
+      ...emptyRecurState(),
       created: { T1: { "2026-09-11": "X1" } },
-      reported: {},
       placed,
     });
 
@@ -330,6 +349,136 @@ describe("plan", () => {
       const settled = made({ T1: { projectId: "P1", sectionId: "S1" } });
       const ops = plan(checked(inProject), settled, TODAY, "INBOX", open());
       expect(ops.filter((op) => op.kind === "MoveInstance" || op.kind === "SetPlace")).toEqual([]);
+    });
+  });
+
+  describe("editing a template updates the weeks already made", () => {
+    const wrote = (n: number, deadline: string, due: string): Written => ({
+      content: `화학 실험 ${n}주차`,
+      description: "",
+      priority: 3,
+      labels: ["lab"],
+      deadline,
+      due,
+    });
+    const X1 = wrote(2, "2026-09-11", "2026-09-09");
+    const X2 = wrote(3, "2026-09-18", "2026-09-16");
+    // Synced with the original template, as the last run left it.
+    const settled = (): RecurState => ({
+      ...emptyRecurState(),
+      created: { T1: { "2026-09-11": "X1", "2026-09-18": "X2" } },
+      placed: { T1: { projectId: "P1", sectionId: null } },
+      synced: { T1: templateHash(template(LAB)) },
+      written: { X1, X2 },
+    });
+    const at = (w: Written, extra: Partial<OpenTask> = {}): OpenTask => ({
+      ...w,
+      projectId: "P1",
+      sectionId: null,
+      noteCount: 0,
+      ...extra,
+    });
+    const open = (x1: Partial<OpenTask> = {}, x2: Partial<OpenTask> = {}) =>
+      new Map([
+        ["X1", at(X1, x1)],
+        ["X2", at(X2, x2)],
+      ]);
+    const after = (description: string, overrides?: Partial<TemplateTask>, found = open()) =>
+      plan(checked(description, overrides), settled(), TODAY, "INBOX", found).filter(
+        (op) => op.kind !== "CreateInstance",
+      );
+    const kinds = (ops: RecurOp[]) =>
+      ops.map((op) => ("taskId" in op ? `${op.kind} ${op.taskId}` : op.kind));
+    const patches = (ops: RecurOp[]) =>
+      ops.flatMap((op) =>
+        op.kind === "SyncInstance" && Object.keys(op.patch).length ? [[op.taskId, op.patch]] : [],
+      );
+
+    test("an unchanged template leaves its tasks alone and reads nothing", () => {
+      expect(after(LAB)).toEqual([]);
+    });
+
+    test("a new title is written to every open week, numbered anew", () => {
+      const ops = after(LAB, { content: "화학 실험 {n}회차" });
+      expect(patches(ops)).toEqual([
+        ["X1", { content: "화학 실험 2회차" }],
+        ["X2", { content: "화학 실험 3회차" }],
+      ]);
+      expect(ops.at(-1)?.kind).toBe("SetSynced");
+    });
+
+    test("a field changed by hand is left as the person set it", () => {
+      const ops = after(
+        LAB,
+        { content: "화학 실험 {n}회차", priority: 4 },
+        open({ content: "내 제목" }),
+      );
+      expect(patches(ops)).toEqual([
+        ["X1", { priority: 4 }],
+        ["X2", { content: "화학 실험 3회차", priority: 4 }],
+      ]);
+      // Still recorded as ours as it was, so it keeps reading as changed by hand.
+      const x1 = ops.find((op) => op.kind === "SyncInstance" && op.taskId === "X1");
+      expect(x1?.kind === "SyncInstance" && x1.written.content).toBe("화학 실험 2주차");
+    });
+
+    test("labels read back in another order are not a change by hand", () => {
+      const ops = after(LAB, { labels: ["lab", "chem"] }, open({ labels: ["lab"] }));
+      expect(patches(ops)).toContainEqual(["X1", { labels: ["lab", "chem"] }]);
+    });
+
+    test("a due rule removed clears the due date", () => {
+      const ops = after(LAB.replace("due: -2d\n", ""));
+      expect(patches(ops)).toEqual([
+        ["X1", { due: null }],
+        ["X2", { due: null }],
+      ]);
+    });
+
+    test("a changed weekday deletes the untouched weeks it no longer has", () => {
+      expect(kinds(after(LAB.replace("every: fri", "every: thu")))).toEqual([
+        "DeleteInstance X1",
+        "DeleteInstance X2",
+        "SetSynced",
+      ]);
+    });
+
+    test("a week that is now skipped goes, and the weeks after it renumber", () => {
+      const ops = after(LAB.replace("skip: ", "skip: 2026-09-11, "));
+      expect(kinds(ops)).toEqual(["DeleteInstance X1", "SyncInstance X2", "SetSynced"]);
+      expect(patches(ops)).toEqual([["X2", { content: "화학 실험 2주차" }]]);
+    });
+
+    test("a removed week that was commented on or changed by hand is kept", () => {
+      const thu = LAB.replace("every: fri", "every: thu");
+      expect(kinds(after(thu, {}, open({ noteCount: 1 }, { due: "2026-09-17" })))).toEqual([
+        "KeepInstance X1",
+        "KeepInstance X2",
+        "SetSynced",
+      ]);
+    });
+
+    test("a finished week is not touched", () => {
+      const onlyX2 = new Map([["X2", at(X2)]]);
+      expect(kinds(after(LAB.replace("every: fri", "every: thu"), {}, onlyX2))).toEqual([
+        "DeleteInstance X2",
+        "SetSynced",
+      ]);
+    });
+
+    test("a task seen for the first time is taken as it stands", () => {
+      const state = { ...settled(), written: {}, synced: {} };
+      const ops = plan(
+        checked(LAB),
+        state,
+        TODAY,
+        "INBOX",
+        open({ content: "화학 실험 2주차 (늦음)" }),
+      );
+      // Nothing to rewrite, since nothing is known to have been changed by
+      // hand -- but the first title is the rule's, so it is put right.
+      expect(patches(ops)).toEqual([["X1", { content: "화학 실험 2주차" }]]);
+      expect(ops.filter((op) => op.kind === "SyncInstance")).toHaveLength(2);
     });
   });
 });

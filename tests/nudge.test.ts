@@ -18,6 +18,7 @@ function task(id: string, deadline: string | null, due: string | null = null): T
     due,
     isRecurring: false,
     childOrder: 0,
+    noteCount: 0,
   };
 }
 

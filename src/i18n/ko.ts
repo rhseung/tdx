@@ -33,6 +33,7 @@ export const ko: Messages = {
     broken: "오류",
     fixed: "해결",
     today: "오늘",
+    kept: "남김",
   },
   ago: (seconds) => {
     if (seconds < 60) return `${seconds}초 전`;
@@ -124,7 +125,7 @@ export const ko: Messages = {
     readGithub: "GitHub 읽기",
     readTodoist: "Todoist 읽기",
     readTemplates: "템플릿 읽기",
-    readMoving: "옮길 작업 읽기",
+    readMade: "만든 작업 읽기",
     readDeadlines: "마감일 읽기",
     plan: "계획",
     apply: "적용",
@@ -209,6 +210,7 @@ export const ko: Messages = {
     emptyList: "아직 템플릿이 없습니다. `tdx recur new`로 만드세요.",
     noProject: (name) => `아직 ${name} 프로젝트가 없습니다. \`tdx recur new\`가 만듭니다.`,
     noValidRule: "규칙이 올바른 템플릿이 없습니다",
+    kept: "(규칙에서 빠졌지만 손댄 흔적이 있어 남겨 둠)",
     noTemplates: "아직 템플릿이 없습니다. `tdx recur new`로 만드세요",
     noTemplate: (ids) => `템플릿이 없습니다: ${ids}`,
     pickEdit: "어느 템플릿을 고칠까요?",

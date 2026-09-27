@@ -62,6 +62,7 @@ export class FakeTodoist implements Api {
       deadline: null,
       due: null,
       child_order: this.tasks.length,
+      note_count: 0,
       ...fields,
     };
     this.tasks.push(row);
@@ -116,8 +117,10 @@ export class FakeTodoist implements Api {
     }
     if (collection === "tasks" && id && !action) {
       const task = this.#find(this.tasks, id);
-      const { deadline_date, due_date, ...rest } = body;
+      const { deadline_date, due_date, due_string, ...rest } = body;
       Object.assign(task, rest);
+      // Todoist clears a due date only when told in words.
+      if (due_string === "no date") task["due"] = null;
       if ("deadline_date" in body) {
         task["deadline"] = deadline_date ? { date: deadline_date, lang: "en" } : null;
       }

@@ -365,3 +365,72 @@ describe("recur placement", () => {
     expect(made).toMatchObject({ project_id: course["id"], section_id: reports["id"] });
   });
 });
+
+describe("recur edits", () => {
+  // Two weeks made: Fri 10/2 and Fri 10/9, with lead 12d on the 27th.
+  const TWO = LAB.replace("lead: 5d", "lead: 12d");
+  const madeWeeks = (fake: FakeTodoist) =>
+    fake.tasks.filter((t) => /\d(주차|회차)$/.test(String(t["content"])));
+
+  test("a retitled template renames its open weeks, and a hand edit survives", async () => {
+    const { fake, template } = workspace(TWO);
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    const [first, second] = madeWeeks(fake);
+    expect([first?.["content"], second?.["content"]]).toEqual([
+      "화학 실험 5주차",
+      "화학 실험 6주차",
+    ]);
+    Object.assign(second ?? {}, { content: "6주차는 조별" }); // by hand
+
+    template["content"] = "화학 실험 {n}회차";
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    expect(first?.["content"]).toBe("화학 실험 5회차");
+    expect(second?.["content"]).toBe("6주차는 조별");
+
+    // Settled: nothing is read or written on the next run.
+    const before = fake.calls.length;
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    expect(fake.calls.slice(before).filter((c) => c.method !== "GET")).toEqual([]);
+  });
+
+  test("a changed weekday removes the old weeks and makes the new ones", async () => {
+    const { fake, template } = workspace(TWO);
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    const [first, second] = madeWeeks(fake);
+    fake.comments.push({ id: "C9", task_id: second?.["id"], content: "자료 링크" });
+    Object.assign(second ?? {}, { note_count: 1 });
+
+    template["description"] = String(template["description"]).replace("every: fri", "every: thu");
+    await runRecur(quiet(), { api: fake, today: TODAY });
+
+    const weeks = madeWeeks(fake).map((t) => [t["content"], t["deadline"]?.["date"] ?? null]);
+    expect(fake.tasks).not.toContain(first);
+    // The commented Friday stays beside the new Thursdays, which count from
+    // the first Thursday after `from` (9/10), so 10/1 is the fourth.
+    expect(weeks).toEqual([
+      ["화학 실험 6주차", "2026-10-09"],
+      ["화학 실험 4주차", "2026-10-01"],
+      ["화학 실험 5주차", "2026-10-08"],
+    ]);
+  });
+
+  test("dropping the due rule clears the due dates", async () => {
+    const { fake, template } = workspace(TWO);
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    template["description"] = String(template["description"]).replace("due: -2d\n", "");
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    expect(madeWeeks(fake).map((t) => t["due"])).toEqual([null, null]);
+  });
+
+  test("a run over a template reports kept weeks in its ops", async () => {
+    const { fake, template } = workspace(TWO);
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    const [first] = madeWeeks(fake);
+    Object.assign(first ?? {}, { priority: 4 });
+    template["description"] = String(template["description"]).replace("every: fri", "every: thu");
+    const result = await runRecur(quiet(), { api: fake, today: TODAY });
+    expect(result.ops.filter((op) => op.verb === "kept").map((op) => op.text)).toEqual([
+      expect.stringContaining("화학 실험 5주차"),
+    ]);
+  });
+});

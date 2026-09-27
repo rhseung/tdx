@@ -58,6 +58,9 @@ export const TodoistTask = z.object({
     })
     .nullable(),
   child_order: z.number().int(),
+  // Required, not defaulted: read as 0 when missing, a commented task would
+  // look untouched and be deletable.
+  note_count: z.number().int().nonnegative(),
 });
 
 export const TodoistProject = z.object({
@@ -150,6 +153,20 @@ export const RecurStateFile = z.object({
   reported: z.record(z.string(), z.string()).default({}),
   placed: z
     .record(z.string(), z.object({ projectId: z.string(), sectionId: z.string().nullable() }))
+    .default({}),
+  synced: z.record(z.string(), z.string()).default({}),
+  written: z
+    .record(
+      z.string(),
+      z.object({
+        content: z.string(),
+        description: z.string(),
+        priority: z.number().int(),
+        labels: z.array(z.string()),
+        deadline: Day.nullable(),
+        due: Day.nullable(),
+      }),
+    )
     .default({}),
 });
 
