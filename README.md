@@ -7,6 +7,7 @@ Todoist를 쓰면서 부족했던 기능을 채우는 개인 툴킷입니다. `t
 | --- | --- | --- |
 | GitHub 동기화 | `tdx gh sync` | 나에게 assign 된 issue와 PR을 Todoist로 옮깁니다 |
 | 반복 과제 | `tdx recur` | 매주 금요일 마감 같은 과제를 회차마다 deadline 이 달린 task로 만듭니다 |
+| 마감 임박 | `tdx nudge` | deadline은 있고 due가 없는 task를 마감 2일 전에 Today로 올립니다 |
 
 launchd 에이전트가 `tdx run`을 120초마다 호출해서 켜 둔 기능을 모두 한 번씩 돌립니다.
 한 기능이 실패해도 나머지는 계속 돕니다.
@@ -51,6 +52,8 @@ tdx recur preview [id]      # 회차별 deadline, due, 생성일, 상태
 tdx recur show <id>         # 템플릿 하나의 규칙과 다음 회차
 tdx recur run --dry-run     # 지금 만들 회차 확인
 tdx recur rm <id...>        # 템플릿 삭제 (이미 만든 task는 남음)
+tdx nudge                   # deadline만 있는 task와 Today로 올라갈 날
+tdx nudge run --dry-run     # 지금 올릴 task 확인 (--days 로 기준 조절)
 tdx status                  # 에이전트 상태와 기능별 마지막 실행 결과
 tdx enable gh / disable gh  # tdx run 에 넣고 빼기
 tdx install / uninstall     # launchd 등록과 해제 (--interval 로 주기 조절)
@@ -228,6 +231,19 @@ state 이므로 완료로 남습니다.
 내일 다시 열 수도 있는데, polling 할 때마다 삭제하고 다시 생성하면 곤란하기 때문입니다.
 안에 항목이 하나라도 남아 있으면, 이 도구가 만든 항목이 아니더라도 삭제하지 않습니다.
 
+## 마감 임박
+
+Todoist는 deadline만으로는 task를 Today에 띄우지 않습니다. Upcoming에만 보이므로 due가 없는
+task는 마감이 지날 때까지 눈에 띄지 않을 수 있습니다. 그래서 deadline이 2일 안으로 다가왔는데
+due가 비어 있으면 due를 오늘로 넣습니다. 이미 마감이 지난 task도 포함합니다.
+
+- task마다 한 번만 넣습니다. 올라간 뒤에 due를 손으로 지우면 그 결정을 존중해서 다시
+  넣지 않습니다.
+- 한 번에 20개를 넘게 올리려 하면 멈춥니다. Today가 넘쳐 버리면 정작 봐야 할 것이 묻히기
+  때문입니다. 의도한 상황이면 `--force`를 씁니다.
+- 대상은 Todoist 필터 `no date & !no deadline`로 한 번에 읽습니다. 날짜 계산은 서버가 아니라
+  이 컴퓨터의 날짜를 기준으로 합니다.
+
 ## 상태 저장
 
 기능마다 checkout 루트의 `state/` 아래에 파일 하나씩을 둡니다. 이 디렉터리는 gitignore에
@@ -237,6 +253,7 @@ state 이므로 완료로 남습니다.
 | --- | --- |
 | `github.json` | GitHub id와 Todoist id의 짝 |
 | `recur.json` | 템플릿별로 이미 만든 회차의 마감일과 task id, 보고한 오류 |
+| `nudge.json` | Today로 올린 task와 그 날짜. 60일이 지나면 지웁니다 |
 | `runs.json` | 기능별 마지막 실행 시각과 결과. `tdx status`가 읽습니다 |
 | `config.json` | `tdx disable`로 끈 기능 목록 |
 

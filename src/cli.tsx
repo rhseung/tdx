@@ -8,6 +8,7 @@ import { FEATURES } from "./features.ts";
 import { syncGithub } from "./github/feature.tsx";
 import { GRACE_DAYS } from "./github/reconcile.ts";
 import { initScript, SHELLS } from "./init.ts";
+import { registerNudge } from "./nudge/commands.tsx";
 import { registerRecur } from "./recur/commands.tsx";
 import { fail, printOps, Result, withOutput } from "./ui/command.tsx";
 import { type OutputFlags, outputOf, printJson, printStatic, showTable } from "./ui/output.tsx";
@@ -38,6 +39,7 @@ withOutput(
     // One feature failing must not starve the rest: they touch different
     // parts of Todoist, and a GitHub outage is no reason to skip a deadline.
     for (const feature of chosen) {
+      progress.scope = feature.name;
       try {
         const result = await feature.run(progress, { dryRun: Boolean(flags.dryRun) });
         results[feature.name] = { ok: true, ...result };
@@ -93,6 +95,7 @@ withOutput(
 });
 
 registerRecur(program);
+registerNudge(program);
 
 program
   .command("install")

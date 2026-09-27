@@ -4,6 +4,7 @@
 // completion guard), and nothing after it depends on it.
 
 import { syncGithub } from "./github/feature.tsx";
+import { runNudge } from "./nudge/nudge.ts";
 import { runRecur } from "./recur/feature.tsx";
 import type { OpRow } from "./ui/parts.tsx";
 import type { Progress } from "./ui/progress.tsx";
@@ -29,5 +30,11 @@ export const FEATURES: Feature[] = [
     name: "recur",
     description: "make recurring assignments from the Templates project",
     run: (progress, { dryRun }) => runRecur(progress, { dryRun }),
+  },
+  // Last, so a task recur made this run is already there to be looked at.
+  {
+    name: "nudge",
+    description: "pull tasks with a near deadline and no due date into Today",
+    run: (progress, { dryRun }) => runNudge(progress, { dryRun }),
   },
 ];

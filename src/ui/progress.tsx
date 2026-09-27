@@ -11,6 +11,8 @@ import { color, symbol } from "./theme.ts";
 type State = "running" | "done" | "failed";
 
 interface Step {
+  id: number;
+  scope: string;
   label: string;
   state: State;
   detail: string;
@@ -22,11 +24,12 @@ export class Progress {
   #listeners = new Set<() => void>();
   #version = 0;
   readonly #output: Output;
-  readonly #prefix: string;
+  // Which feature the next steps belong to, when `tdx run` drives several:
+  // three features each have a "Plan" step, and they must read apart.
+  scope = "";
 
-  constructor(output: Output, prefix = "") {
+  constructor(output: Output) {
     this.#output = output;
-    this.#prefix = prefix;
   }
 
   subscribe = (listener: () => void) => {
@@ -50,7 +53,13 @@ export class Progress {
   }
 
   async step<T>(label: string, run: () => Promise<T>, detail?: (value: T) => string): Promise<T> {
-    const step: Step = { label, state: "running", detail: "" };
+    const step: Step = {
+      id: this.#steps.length,
+      scope: this.scope,
+      label,
+      state: "running",
+      detail: "",
+    };
     this.#steps.push(step);
     this.#changed();
     try {
@@ -84,8 +93,8 @@ export class Progress {
   #log(step: Step) {
     if (this.#output.mode !== "plain") return;
     const mark = step.state === "done" ? "ok" : "fail";
-    const line = [new Date().toISOString(), mark, `${this.#prefix}${step.label}`, step.detail];
-    process.stdout.write(`${line.filter(Boolean).join("\t")}\n`);
+    const line = [new Date().toISOString(), mark, step.scope, step.label, step.detail];
+    process.stdout.write(`${line.join("\t")}\n`);
   }
 }
 
@@ -101,6 +110,7 @@ function StepLine({ step }: { step: Step }) {
   return (
     <Box gap={1}>
       {mark}
+      {step.scope ? <Text color={color.muted}>{step.scope}</Text> : null}
       <Text>{step.label}</Text>
       {step.detail ? (
         <Text color={step.state === "failed" ? color.error : color.muted}>{step.detail}</Text>
@@ -114,7 +124,7 @@ function ProgressView({ progress }: { progress: Progress }) {
   return (
     <Box flexDirection="column">
       {progress.steps.map((step) => (
-        <StepLine key={step.label} step={step} />
+        <StepLine key={step.id} step={step} />
       ))}
       {progress.tail ? <Box marginTop={1}>{progress.tail}</Box> : null}
     </Box>
@@ -126,9 +136,8 @@ function ProgressView({ progress }: { progress: Progress }) {
 export async function withProgress<T>(
   output: Output,
   body: (progress: Progress) => Promise<T>,
-  prefix = "",
 ): Promise<T> {
-  const progress = new Progress(output, prefix);
+  const progress = new Progress(output);
   if (output.mode !== "ink") return body(progress);
   const app = render(<ProgressView progress={progress} />, { exitOnCtrlC: true });
   try {
