@@ -3,8 +3,10 @@ import {
   type Checked,
   CREATE_CAP,
   check,
+  type Directory,
   emptyRecurState,
   hash,
+  type OpenTask,
   plan,
   type RecurOp,
   type RecurState,
@@ -41,6 +43,7 @@ describe("parse", () => {
       lead: 5,
       due: -2,
       project: "화학실험",
+      section: null,
     });
   });
 
@@ -161,7 +164,11 @@ describe("plan", () => {
     ],
     ...overrides,
   });
-  const PROJECTS = new Map([["화학실험", "P1"]]);
+  const PROJECTS: Directory = {
+    inboxId: "INBOX",
+    projects: new Map([["화학실험", "P1"]]),
+    sections: new Map([["P1", new Map([["실험 보고서", "S1"]])]]),
+  };
   const checked = (description: string, overrides?: Partial<TemplateTask>): Checked[] =>
     check([template(description, overrides)], PROJECTS);
   const creates = (ops: RecurOp[]) =>
@@ -169,7 +176,7 @@ describe("plan", () => {
 
   test("a deadline appears `lead` days before it, with its due and subtasks", () => {
     // Friday the 11th appears on the 6th; the 4th is already past.
-    const ops = plan(checked(LAB), emptyRecurState(), TODAY);
+    const ops = plan(checked(LAB), emptyRecurState(), TODAY, "INBOX");
     expect(creates(ops).map((op) => op.deadline)).toEqual(["2026-09-11"]);
     const [op] = creates(ops);
     expect(op?.task).toEqual({
@@ -177,7 +184,7 @@ describe("plan", () => {
       description: "",
       priority: 3,
       labels: ["lab"],
-      projectId: "P1",
+      place: { projectId: "P1", sectionId: null },
       deadline: "2026-09-11",
       due: "2026-09-09",
     });
@@ -185,12 +192,16 @@ describe("plan", () => {
   });
 
   test("the day before `lead` is too early", () => {
-    expect(creates(plan(checked(LAB), emptyRecurState(), "2026-09-05"))).toHaveLength(0);
+    expect(creates(plan(checked(LAB), emptyRecurState(), "2026-09-05", "INBOX"))).toHaveLength(0);
   });
 
   test("a deadline already made is never made again, even if its task was deleted", () => {
-    const state: RecurState = { created: { T1: { "2026-09-11": "gone" } }, reported: {} };
-    expect(creates(plan(checked(LAB), state, TODAY))).toHaveLength(0);
+    const state: RecurState = {
+      created: { T1: { "2026-09-11": "gone" } },
+      reported: {},
+      placed: {},
+    };
+    expect(creates(plan(checked(LAB), state, TODAY, "INBOX"))).toHaveLength(0);
   });
 
   test("a machine that slept through several lead days catches up", () => {
@@ -198,6 +209,7 @@ describe("plan", () => {
       checked("every: mon, wed, fri\nfrom: 2026-09-01\nlead: 7d"),
       emptyRecurState(),
       TODAY,
+      "INBOX",
     );
     expect(creates(ops).map((op) => op.deadline)).toEqual([
       "2026-09-07",
@@ -208,19 +220,19 @@ describe("plan", () => {
   });
 
   test("skipped weeks are not made", () => {
-    const ops = plan(checked(LAB), emptyRecurState(), "2026-10-26");
+    const ops = plan(checked(LAB), emptyRecurState(), "2026-10-26", "INBOX");
     expect(creates(ops).map((op) => op.deadline)).toEqual([]);
   });
 
   test("a broken template is reported once, and cleared once fixed", () => {
     const broken = "every: fryday\nfrom: 2026-09-04";
-    let ops = plan(checked(broken), emptyRecurState(), TODAY);
+    let ops = plan(checked(broken), emptyRecurState(), TODAY, "INBOX");
     expect(ops.map((op) => op.kind)).toEqual(["ReportError"]);
 
-    const state: RecurState = { created: {}, reported: { T1: hash(broken) } };
-    expect(plan(checked(broken), state, TODAY)).toEqual([]);
+    const state: RecurState = { created: {}, reported: { T1: hash(broken) }, placed: {} };
+    expect(plan(checked(broken), state, TODAY, "INBOX")).toEqual([]);
 
-    ops = plan(checked(LAB), state, TODAY);
+    ops = plan(checked(LAB), state, TODAY, "INBOX");
     expect(ops[0]?.kind).toBe("ClearError");
   });
 
@@ -229,6 +241,7 @@ describe("plan", () => {
       check([template(LAB.replace("화학실험", "없는 프로젝트"))], PROJECTS),
       emptyRecurState(),
       TODAY,
+      "INBOX",
     );
     expect(ops[0]?.kind).toBe("ReportError");
   });
@@ -238,13 +251,85 @@ describe("plan", () => {
       checked("every: mon, tue, wed, thu, fri\nfrom: 2026-09-07\nlead: 60d"),
       emptyRecurState(),
       TODAY,
+      "INBOX",
     );
     expect(ops.map((op) => op.kind)).toEqual(["ReportError"]);
     expect(ops[0]?.kind === "ReportError" && ops[0].message).toContain(String(CREATE_CAP));
   });
 
   test("notes become each task's description", () => {
-    const ops = plan(checked(`${LAB}\n---\n실험복 지참`), emptyRecurState(), TODAY);
+    const ops = plan(checked(`${LAB}\n---\n실험복 지참`), emptyRecurState(), TODAY, "INBOX");
     expect(creates(ops)[0]?.task.description).toBe("실험복 지참");
+  });
+
+  describe("where tasks go", () => {
+    const moves = (ops: RecurOp[]) => ops.flatMap((op) => (op.kind === "MoveInstance" ? [op] : []));
+    const placeOf = (ops: RecurOp[]) =>
+      ops.flatMap((op) => (op.kind === "CreateInstance" ? [op.task.place] : []));
+    const inProject = `${LAB}\nsection: 실험 보고서`;
+    const open = (at: Partial<OpenTask> = {}): Map<string, OpenTask> =>
+      new Map([["X1", { projectId: "INBOX", sectionId: null, content: "화학 실험 2주차", ...at }]]);
+    const made = (placed: RecurState["placed"] = {}): RecurState => ({
+      created: { T1: { "2026-09-11": "X1" } },
+      reported: {},
+      placed,
+    });
+
+    test("no project means the Inbox, as a real place", () => {
+      const ops = plan(
+        checked(LAB.replace("project: 화학실험", "")),
+        emptyRecurState(),
+        TODAY,
+        "INBOX",
+      );
+      expect(placeOf(ops)).toEqual([{ projectId: "INBOX", sectionId: null }]);
+    });
+
+    test("a section resolves by name inside its project", () => {
+      const ops = plan(checked(inProject), emptyRecurState(), "2026-09-14", "INBOX");
+      expect(placeOf(ops)).toEqual([{ projectId: "P1", sectionId: "S1" }]);
+    });
+
+    test("an unknown section is a template error naming the project", () => {
+      const [one] = checked(`${LAB}\nsection: 없는 섹션`);
+      expect(one?.errors).toEqual(["section: no section named `없는 섹션` in 화학실험"]);
+    });
+
+    test("section and project round-trip through the description", () => {
+      expect(parse(format(rule(inProject))).rule?.section).toBe("실험 보고서");
+    });
+
+    test("a template pointed somewhere new takes its open tasks along", () => {
+      const ops = plan(checked(inProject), made(), TODAY, "INBOX", open());
+      expect(moves(ops)).toEqual([
+        {
+          kind: "MoveInstance",
+          templateId: "T1",
+          taskId: "X1",
+          content: "화학 실험 2주차",
+          to: { projectId: "P1", sectionId: "S1" },
+        },
+      ]);
+      expect(ops.at(-1)).toEqual({
+        kind: "SetPlace",
+        templateId: "T1",
+        place: { projectId: "P1", sectionId: "S1" },
+      });
+    });
+
+    test("a task moved by hand stays where it was put", () => {
+      const elsewhere = open({ projectId: "P9" });
+      expect(moves(plan(checked(inProject), made(), TODAY, "INBOX", elsewhere))).toEqual([]);
+    });
+
+    test("a finished task, gone from the open list, is not moved", () => {
+      expect(moves(plan(checked(inProject), made(), TODAY, "INBOX", new Map()))).toEqual([]);
+    });
+
+    test("nothing moves, and nothing is recorded, while the place is unchanged", () => {
+      const settled = made({ T1: { projectId: "P1", sectionId: "S1" } });
+      const ops = plan(checked(inProject), settled, TODAY, "INBOX", open());
+      expect(ops.filter((op) => op.kind === "MoveInstance" || op.kind === "SetPlace")).toEqual([]);
+    });
   });
 });

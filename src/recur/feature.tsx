@@ -5,8 +5,8 @@ import type { Api } from "../core/http.ts";
 import * as todoist from "../core/todoist.ts";
 import type { OpRow } from "../ui/parts.tsx";
 import type { Progress } from "../ui/progress.tsx";
-import { applyOps, byName, loadState, readWorkspace } from "./io.ts";
-import { type Checked, check, plan, type RecurOp, type RecurState } from "./plan.ts";
+import { applyOps, directory, loadState, openTasks, readWorkspace } from "./io.ts";
+import { type Checked, check, plan, type RecurOp, type RecurState, relocated } from "./plan.ts";
 import {
   appearsOn,
   describeEvery,
@@ -17,7 +17,8 @@ import {
   title,
 } from "./rule.ts";
 
-function describeRecurOp(op: RecurOp): OpRow {
+// SetPlace is bookkeeping with nothing to show.
+function describeRecurOp(op: RecurOp): OpRow | null {
   switch (op.kind) {
     case "CreateInstance":
       return { change: "create", verb: "task", text: `${op.task.content}  ${op.deadline}` };
@@ -29,6 +30,10 @@ function describeRecurOp(op: RecurOp): OpRow {
       };
     case "ClearError":
       return { change: "meta", verb: "fixed", text: op.templateId };
+    case "MoveInstance":
+      return { change: "move", verb: "task", text: op.content };
+    case "SetPlace":
+      return null;
   }
 }
 
@@ -45,25 +50,38 @@ export async function runRecur(
     (w) => (w.templatesProject ? `${w.templates.length} templates` : "no Templates project yet"),
   );
   const only = options.ids?.length ? new Set(options.ids) : null;
+  const names = directory(workspace);
   const checked = check(
     workspace.templates.filter((t) => !only || only.has(t.id)),
-    byName(workspace.projects),
+    names,
   );
+  // Where the made tasks stand is looked up only for templates that now point
+  // somewhere else, so an ordinary run costs no extra call.
+  const moving = relocated(checked, state, names.inboxId);
+  const open = moving.length
+    ? await progress.step("Read tasks to move", () =>
+        openTasks(
+          api,
+          moving.flatMap((c) => Object.values(state.created[c.template.id] ?? {})),
+        ),
+      )
+    : new Map();
   const ops = await progress.step(
     "Plan",
-    async () => plan(checked, state, today),
+    async () => plan(checked, state, today, names.inboxId, open),
     (ops) => (ops.length ? `${ops.length} changes` : "nothing due"),
   );
   if (!options.dryRun && ops.length) {
     await progress.step(
-      "Create",
+      "Apply",
       () => applyOps(api, state, ops, (_, i) => progress.note(`${i + 1}/${ops.length}`)),
       () => `${ops.length} applied`,
     );
   }
   const made = ops.filter((op) => op.kind === "CreateInstance").length;
   const summary = `${workspace.templates.length} templates, ${made} tasks${options.dryRun ? " (dry run)" : ""}`;
-  return { ops: ops.map(describeRecurOp), summary, raw: ops };
+  const shown = ops.map(describeRecurOp).filter((op): op is OpRow => op !== null);
+  return { ops: shown, summary, raw: ops };
 }
 
 // --- read-only views ----------------------------------------------------------
@@ -162,7 +180,7 @@ export async function loadChecked(ids?: string[]) {
   const only = ids?.length ? new Set(ids) : null;
   const checked = check(
     workspace.templates.filter((t) => !only || only.has(t.id)),
-    byName(workspace.projects),
+    directory(workspace),
   );
   return { api, workspace, checked, state: loadState() };
 }

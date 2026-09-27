@@ -91,6 +91,7 @@ describe("form", () => {
         heading="Edit"
         initial={draft}
         projects={[]}
+        sections={() => []}
         isNew={false}
         onSave={() => {}}
         onCancel={() => {}}
@@ -118,6 +119,7 @@ describe("form", () => {
         heading="Edit"
         initial={draft}
         projects={[]}
+        sections={() => []}
         isNew={false}
         onSave={(d) => (saved = d)}
         onCancel={() => {}}
@@ -142,6 +144,7 @@ describe("form", () => {
         heading="New"
         initial={{ ...draft, title: "" }}
         projects={[]}
+        sections={() => []}
         isNew
         onSave={(d) => (saved = d)}
         onCancel={() => {}}
@@ -159,44 +162,94 @@ describe("form", () => {
   });
 });
 
-test("the project picker leaves the Inbox, and closes on the current project", async () => {
-  const base: Draft = {
+describe("form: project and section", () => {
+  const SECTIONS: Record<string, string[]> = { 화학실험: ["실험 보고서", "예비"], 물리: [] };
+  const draft: Draft = {
     ...blankDraft("2026-09-01"),
     title: "화학 실험 {n}주차",
     weekdays: [4],
     from: "2026-09-04",
+    project: "화학실험",
   };
-  const saves: Draft[] = [];
-  const view = render(
-    <Form
-      heading="Edit"
-      initial={base}
-      projects={["화학실험", "물리"]}
-      isNew={false}
-      onSave={(d) => saves.push(d)}
-      onCancel={() => {}}
-    />,
-  );
-  await tick();
-  // Up from the title wraps round: save, notes, subtasks, project.
-  for (let i = 0; i < 4; i++) view.stdin.write("\x1b[A");
-  await tick();
-  view.stdin.write(ENTER);
-  await tick();
-  view.stdin.write(DOWN); // Inbox -> 화학실험
-  await tick();
-  view.stdin.write(ENTER);
-  await tick();
-  view.stdin.write("\x13");
-  await tick();
-  expect(saves.at(-1)?.project).toBe("화학실험");
-  // Picking the Inbox again, which starts out current, still closes the picker.
-  view.stdin.write(ENTER);
-  await tick();
-  view.stdin.write(ENTER);
-  await tick();
-  view.stdin.write("\x13");
-  await tick();
-  expect(saves.at(-1)?.project).toBeNull();
-  view.unmount();
+  const UP = "\x1b[A";
+  const toSection = (view: { stdin: { write: (s: string) => void } }) => {
+    // Up from the title wraps round: save, notes, subtasks, section.
+    for (let i = 0; i < 4; i++) view.stdin.write(UP);
+  };
+  const form = (onSave: (d: Draft) => void, initial: Draft = draft) =>
+    render(
+      <Form
+        heading="Edit"
+        initial={initial}
+        projects={["화학실험", "물리"]}
+        sections={(p) => SECTIONS[p ?? ""] ?? []}
+        isNew={false}
+        onSave={onSave}
+        onCancel={() => {}}
+      />,
+    );
+
+  test("the section is picked from the project's own sections", async () => {
+    let saved: Draft | null = null;
+    const view = form((d) => (saved = d));
+    await tick();
+    toSection(view);
+    await tick();
+    view.stdin.write(ENTER);
+    await tick();
+    expect(strip(view.lastFrame())).toContain("실험 보고서");
+    view.stdin.write(DOWN); // from "none" to the first section
+    await tick();
+    view.stdin.write(ENTER);
+    await tick();
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.section).toBe("실험 보고서");
+    view.unmount();
+  });
+
+  test("x clears the section", async () => {
+    let saved: Draft | null = null;
+    const view = form((d) => (saved = d), { ...draft, section: "예비" });
+    await tick();
+    toSection(view);
+    await tick();
+    view.stdin.write("x");
+    await tick();
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.section).toBeNull();
+    view.unmount();
+  });
+
+  test("changing the project drops a section that belonged to the old one", async () => {
+    let saved: Draft | null = null;
+    const view = form((d) => (saved = d), { ...draft, section: "예비" });
+    await tick();
+    toSection(view);
+    view.stdin.write(UP); // project
+    await tick();
+    view.stdin.write(ENTER);
+    await tick();
+    view.stdin.write(DOWN); // focus starts on Inbox: past 화학실험 to 물리
+    view.stdin.write(DOWN);
+    await tick();
+    view.stdin.write(ENTER);
+    await tick();
+    view.stdin.write("\x13");
+    await tick();
+    expect(saved).toMatchObject({ project: "물리", section: null });
+    view.unmount();
+  });
+
+  test("a project without sections says so", async () => {
+    const view = form(() => {}, { ...draft, project: "물리" });
+    await tick();
+    toSection(view);
+    await tick();
+    view.stdin.write(ENTER);
+    await tick();
+    expect(strip(view.lastFrame())).toContain("물리 has no sections");
+    view.unmount();
+  });
 });

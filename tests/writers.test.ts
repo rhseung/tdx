@@ -9,8 +9,8 @@ import { draftOf, ruleOf, saveDraft } from "../src/recur/draft.ts";
 import { occurrenceRows, runRecur, templateRows } from "../src/recur/feature.tsx";
 import {
   applyOps,
-  byName,
   deleteTemplate,
+  directory,
   ensureTemplatesProject,
   loadState as loadRecurState,
   readWorkspace,
@@ -86,8 +86,8 @@ describe("recur", () => {
     const state = emptyRecurState();
     const ws = await readWorkspace(api);
     const { plan } = await import("../src/recur/plan.ts");
-    const ops = plan(check(ws.templates, byName(ws.projects)), state, TODAY);
-    expect(ops.length).toBe(2); // Wednesday and Friday
+    const ops = plan(check(ws.templates, directory(ws)), state, TODAY, directory(ws).inboxId);
+    expect(ops.filter((op) => op.kind === "CreateInstance")).toHaveLength(2); // Wednesday and Friday
     // Write 1 is the first task, 2 its subtask, 3 the second task.
     fake.failOnWrite = 3;
     await expect(applyOps(api, state, ops)).rejects.toThrow("write 3 failed");
@@ -96,6 +96,7 @@ describe("recur", () => {
 
   test("the form's draft saves as a template and edits it in place", async () => {
     const fake = new FakeTodoist();
+    fake.project("Inbox", { inbox_project: true });
     const templatesProjectId = await ensureTemplatesProject(fake, await readWorkspace(fake));
     const rule = parse(LAB).rule;
     if (!rule) throw new Error("fixture");
@@ -105,7 +106,7 @@ describe("recur", () => {
         rule,
         notes: "실험복 지참",
         errors: [],
-        projectId: null,
+        place: null,
       }),
       title: "화학 실험 {n}주차",
       subtasks: ["예비보고서", "결과보고서"],
@@ -114,7 +115,7 @@ describe("recur", () => {
     expect(created.created).toBe(true);
 
     const ws = await readWorkspace(fake);
-    const [checked] = check(ws.templates, byName(ws.projects));
+    const [checked] = check(ws.templates, directory(ws));
     if (!checked) throw new Error("template was not saved");
     // What the form wrote is what the scheduler reads.
     expect(checked.rule).toEqual(ruleOf(draft));
@@ -295,7 +296,7 @@ describe("recur views", () => {
     fake.task({ project_id: template["project_id"], content: "broken", description: "every: x" });
     await runRecur(quiet(), { api: fake, today: TODAY });
     const ws = await readWorkspace(fake);
-    const rows = templateRows(check(ws.templates, byName(ws.projects)), loadRecurState(), TODAY);
+    const rows = templateRows(check(ws.templates, directory(ws)), loadRecurState(), TODAY);
     expect(rows.map((r) => [r.name, r.next, r.made, r.ok])).toEqual([
       ["화학 실험 {n}주차", "2026-10-02", 1, true],
       ["broken", null, 0, false],
@@ -306,12 +307,7 @@ describe("recur views", () => {
     const { fake } = workspace(`${LAB.split("\n---")[0]}\nskip: 2026-10-09`);
     await runRecur(quiet(), { api: fake, today: TODAY });
     const ws = await readWorkspace(fake);
-    const rows = occurrenceRows(
-      check(ws.templates, byName(ws.projects)),
-      loadRecurState(),
-      TODAY,
-      3,
-    );
+    const rows = occurrenceRows(check(ws.templates, directory(ws)), loadRecurState(), TODAY, 3);
     expect(rows.map((r) => [r.deadline, r.n, r.status])).toEqual([
       ["2026-09-04", 1, "past"],
       ["2026-09-11", 2, "past"],
@@ -322,5 +318,50 @@ describe("recur views", () => {
       ["2026-10-16", 6, "planned"],
     ]);
     expect(rows.find((r) => r.status === "skipped")?.title).toBe("화학 실험 {n}주차");
+  });
+});
+
+describe("recur placement", () => {
+  test("pointing a template at a section moves the weeks left in the Inbox", async () => {
+    const { fake, template } = workspace(LAB.replace("lead: 5d", "lead: 12d"));
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    const made = fake.tasks.filter((t) => /\d주차$/.test(String(t["content"])));
+    expect(made.map((t) => t["content"])).toEqual(["화학 실험 5주차", "화학 실험 6주차"]);
+    // One of the two is moved by hand, and must stay where it was put.
+    const course = fake.project("화학실험");
+    const reports = fake.section("실험 보고서", course["id"]);
+    const elsewhere = fake.project("다른 곳");
+    Object.assign(made[1] ?? {}, { project_id: elsewhere["id"] });
+
+    template["description"] = `${template["description"]}`.replace(
+      "\n---",
+      "\nproject: 화학실험\nsection: 실험 보고서\n---",
+    );
+    await runRecur(quiet(), { api: fake, today: TODAY });
+
+    expect(made[0]).toMatchObject({ project_id: course["id"], section_id: reports["id"] });
+    expect(made[1]).toMatchObject({ project_id: elsewhere["id"] });
+    expect(loadRecurState().placed[template["id"]]).toEqual({
+      projectId: course["id"],
+      sectionId: reports["id"],
+    });
+
+    // Settled: the next run reads nothing extra and moves nothing.
+    const before = fake.calls.length;
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    const later = fake.calls.slice(before);
+    expect(later.some((c) => c.path.includes("/move"))).toBe(false);
+    expect(later.filter((c) => c.path === "/tasks")).toHaveLength(1); // the templates, no ids lookup
+  });
+
+  test("new weeks are made straight into the section", async () => {
+    const { fake } = workspace(
+      LAB.replace("\n---", "\nproject: 화학실험\nsection: 실험 보고서\n---"),
+    );
+    const course = fake.project("화학실험");
+    const reports = fake.section("실험 보고서", course["id"]);
+    await runRecur(quiet(), { api: fake, today: TODAY });
+    const made = fake.tasks.find((t) => t["content"] === "화학 실험 5주차");
+    expect(made).toMatchObject({ project_id: course["id"], section_id: reports["id"] });
   });
 });

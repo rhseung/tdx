@@ -82,7 +82,7 @@ test("a create that comes back without an id is refused, not recorded as undefin
 
 test("state files: missing reads as empty, older ones gain defaults, broken ones stop", () => {
   const dir = mkdtempSync(join(tmpdir(), "tdx-schema-"));
-  expect(loadState(join(dir, "absent.json"))).toEqual({ created: {}, reported: {} });
+  expect(loadState(join(dir, "absent.json"))).toEqual({ created: {}, reported: {}, placed: {} });
 
   const older = join(dir, "github.json");
   writeFileSync(older, JSON.stringify({ root: "R", orgs: {}, sections: {}, tasks: {} }));

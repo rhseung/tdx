@@ -22,6 +22,7 @@ export interface Draft {
   lead: number;
   due: number | null;
   project: string | null;
+  section: string | null;
   subtasks: string[];
   notes: string;
 }
@@ -41,6 +42,7 @@ export function blankDraft(today: Day = localToday()): Draft {
     lead: DEFAULT_LEAD,
     due: null,
     project: null,
+    section: null,
     subtasks: [],
     notes: "",
   };
@@ -61,6 +63,7 @@ export function draftOf(checked: Checked): Draft {
           lead: rule.lead,
           due: rule.due,
           project: rule.project,
+          section: rule.section,
         }
       : {}),
     ...(every?.kind === "weekly"
@@ -86,6 +89,7 @@ export function ruleOf(draft: Draft): Rule {
     lead: draft.lead,
     due: draft.due,
     project: draft.project,
+    section: draft.section,
   };
 }
 

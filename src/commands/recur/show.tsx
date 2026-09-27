@@ -54,6 +54,7 @@ export default function Show({ options, args: [id] }: Props) {
           fields.push(["appears", `${rule.lead} days before the deadline`]);
           if (rule.due !== null) fields.push(["due", relative(rule.due)]);
           fields.push(["project", rule.project ?? "Inbox"]);
+          if (rule.section) fields.push(["section", rule.section]);
         }
         fields.push(["made", String(made)]);
         if (notes) fields.push(["notes", notes]);

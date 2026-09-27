@@ -35,6 +35,7 @@ const FIELDS = [
   "lead",
   "due",
   "project",
+  "section",
   "subtasks",
   "notes",
   "save",
@@ -52,6 +53,7 @@ const LABELS: Record<Field, string> = {
   lead: "Appears",
   due: "Due",
   project: "Project",
+  section: "Section",
   subtasks: "Subtasks",
   notes: "Notes",
   save: "",
@@ -68,6 +70,7 @@ const HINTS: Partial<Record<Field, string>> = {
   lead: "←→ change",
   due: "←→ change · x none",
   project: "enter to pick",
+  section: "enter to pick · x none",
   subtasks: "enter to add · x remove the last",
   notes: "enter to edit · copied into every task",
   save: "enter or ctrl+s to save · esc to cancel",
@@ -75,7 +78,8 @@ const HINTS: Partial<Record<Field, string>> = {
 
 // @inkjs/ui's Select takes an empty value for "nothing chosen": focus will not
 // leave an option whose value is "", and choosing it never fires onChange. So
-// "no project" needs a value of its own -- one no Todoist name can take.
+// "no project" and "no section" need a value of their own -- one no Todoist
+// name can take, since names come from the same list.
 const NONE = "\u0000none";
 
 // The current choice is marked in its label rather than passed as the Select's
@@ -91,7 +95,8 @@ type Editing =
   | null
   | { kind: "text"; field: "title" | "notes" | "subtasks" }
   | { kind: "date"; field: "from" | "until" | "skip" }
-  | { kind: "project" };
+  | { kind: "project" }
+  | { kind: "section" };
 
 const short = (day: Day) => `${Number(day.slice(5, 7))}/${Number(day.slice(8))}`;
 
@@ -104,12 +109,14 @@ export interface FormProps {
   heading: string;
   initial: Draft;
   projects: string[];
+  // Sections of a project by name; null is the Inbox.
+  sections: (project: string | null) => string[];
   isNew: boolean;
   onSave: (draft: Draft) => void;
   onCancel: () => void;
 }
 
-export function Form({ heading, initial, projects, isNew, onSave, onCancel }: FormProps) {
+export function Form({ heading, initial, projects, sections, isNew, onSave, onCancel }: FormProps) {
   const [draft, setDraft] = useState<Draft>(initial);
   const [focus, setFocus] = useState<Field>("title");
   const [editing, setEditing] = useState<Editing>(isNew ? { kind: "text", field: "title" } : null);
@@ -173,6 +180,7 @@ export function Form({ heading, initial, projects, isNew, onSave, onCancel }: Fo
         if (focus === "due") return set({ due: null });
         if (focus === "subtasks") return set({ subtasks: draft.subtasks.slice(0, -1) });
         if (focus === "skip") return set({ skip: [] });
+        if (focus === "section") return set({ section: null });
       }
       if (!key.return) return;
       switch (focus) {
@@ -186,6 +194,8 @@ export function Form({ heading, initial, projects, isNew, onSave, onCancel }: Fo
           return setEditing({ kind: "date", field: focus });
         case "project":
           return setEditing({ kind: "project" });
+        case "section":
+          return setEditing({ kind: "section" });
         case "save":
           return save();
         default:
@@ -264,6 +274,8 @@ export function Form({ heading, initial, projects, isNew, onSave, onCancel }: Fo
         );
       case "project":
         return draft.project ?? "Inbox";
+      case "section":
+        return draft.section ?? <Text color={color.muted}>none</Text>;
       case "subtasks":
         return draft.subtasks.length ? (
           draft.subtasks.join(", ")
@@ -324,13 +336,37 @@ export function Form({ heading, initial, projects, isNew, onSave, onCancel }: Fo
         />
       );
     }
+    if (editing.kind === "section") {
+      const names = sections(draft.project);
+      if (!names.length) {
+        return (
+          <EscapeAware onEscape={() => setEditing(null)}>
+            <Text color={color.muted}>{draft.project ?? "Inbox"} has no sections · esc back</Text>
+          </EscapeAware>
+        );
+      }
+      return (
+        <EscapeAware onEscape={() => setEditing(null)}>
+          <Select
+            visibleOptionCount={8}
+            options={choices(["none", NONE], names, draft.section ?? NONE)}
+            onChange={(picked) => {
+              set({ section: picked === NONE ? null : picked });
+              setEditing(null);
+            }}
+          />
+        </EscapeAware>
+      );
+    }
     return (
       <EscapeAware onEscape={() => setEditing(null)}>
         <Select
           visibleOptionCount={8}
           options={choices(["Inbox", NONE], projects, draft.project ?? NONE)}
           onChange={(picked) => {
-            set({ project: picked === NONE ? null : picked });
+            // A section belongs to one project; a new project starts with none.
+            const project = picked === NONE ? null : picked;
+            set(project === draft.project ? {} : { project, section: null });
             setEditing(null);
           }}
         />

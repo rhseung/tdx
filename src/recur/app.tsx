@@ -15,7 +15,7 @@ import { occurrenceColumns, templateColumns } from "./columns.ts";
 import { blankDraft, type Draft, draftOf, saveDraft } from "./draft.ts";
 import { loadChecked, occurrenceRows, type TemplateRow, templateRows } from "./feature.tsx";
 import { Form } from "./form.tsx";
-import { deleteTemplate, ensureTemplatesProject, TEMPLATES_PROJECT } from "./io.ts";
+import { deleteTemplate, ensureTemplatesProject, sectionNames, TEMPLATES_PROJECT } from "./io.ts";
 
 export type Data = Awaited<ReturnType<typeof loadChecked>>;
 
@@ -79,6 +79,7 @@ function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
         heading={existing ? `Edit ${existing.template.content}` : "New recurring assignment"}
         initial={initialDraft}
         projects={projects}
+        sections={sectionNames(data.workspace)}
         isNew={!existing}
         onCancel={back}
         onSave={(draft) =>

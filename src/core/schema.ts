@@ -68,7 +68,12 @@ export const TodoistProject = z.object({
   inbox_project: z.boolean().optional(),
 });
 
-export const TodoistSection = z.object({ id, name: z.string(), description: text.optional() });
+export const TodoistSection = z.object({
+  id,
+  name: z.string(),
+  project_id: id,
+  description: text.optional(),
+});
 
 export const TodoistLabel = z.object({ id, name: z.string(), color: z.string() });
 
@@ -143,6 +148,9 @@ export const GithubStateFile = z.object({
 export const RecurStateFile = z.object({
   created: z.record(z.string(), z.record(Day, z.string())).default({}),
   reported: z.record(z.string(), z.string()).default({}),
+  placed: z
+    .record(z.string(), z.object({ projectId: z.string(), sectionId: z.string().nullable() }))
+    .default({}),
 });
 
 export const NudgeStateFile = z.object({ nudged: z.record(z.string(), Day).default({}) });

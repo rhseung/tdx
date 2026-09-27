@@ -20,6 +20,7 @@ export interface Rule {
   lead: number; // days before the deadline the task appears
   due: number | null; // days from the deadline; -2 means two days before
   project: string | null; // by name; null is the Inbox
+  section: string | null; // by name, inside the project
 }
 
 export const DEFAULT_LEAD = 7;
@@ -42,7 +43,7 @@ const WEEKDAYS: Record<string, number> = {
 };
 export const WEEKDAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
-const KEYS = ["every", "from", "until", "skip", "lead", "due", "project"] as const;
+const KEYS = ["every", "from", "until", "skip", "lead", "due", "project", "section"] as const;
 
 export interface Parsed {
   rule: Rule | null;
@@ -147,6 +148,7 @@ export function parse(description: string): Parsed {
       lead,
       due: typeof due === "number" ? due : null,
       project: values.get("project") || null,
+      section: values.get("section") || null,
     },
     notes,
     errors: [],
@@ -170,6 +172,7 @@ export function format(rule: Rule, notes = ""): string {
   lines.push(`lead: ${rule.lead}d`);
   if (rule.due !== null) lines.push(`due: ${signed(rule.due)}`);
   if (rule.project) lines.push(`project: ${rule.project}`);
+  if (rule.section) lines.push(`section: ${rule.section}`);
   if (notes.trim()) lines.push(NOTES, notes.trim());
   return lines.join("\n");
 }

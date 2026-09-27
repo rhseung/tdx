@@ -30,6 +30,12 @@ export class FakeTodoist implements Api {
     return `${prefix}${this.#next++}`;
   }
 
+  section(name: string, projectId: string): Row {
+    const row = { id: this.#id("S"), name, project_id: projectId, description: "" };
+    this.sections.push(row);
+    return row;
+  }
+
   project(name: string, extra: Row = {}): Row {
     const row = {
       id: this.#id("P"),
@@ -72,14 +78,18 @@ export class FakeTodoist implements Api {
     if (path === "/projects") return page(this.projects);
     if (path === "/labels") return page(this.labels);
     if (path === "/sections") {
-      return page(this.sections.filter((s) => s["project_id"] === params["project_id"]));
+      const project = params["project_id"];
+      return page(
+        project ? this.sections.filter((s) => s["project_id"] === project) : this.sections,
+      );
     }
     if (path === "/tasks") {
       return page(
         this.tasks.filter(
           (t) =>
             (!params["project_id"] || t["project_id"] === params["project_id"]) &&
-            (!params["parent_id"] || t["parent_id"] === params["parent_id"]),
+            (!params["parent_id"] || t["parent_id"] === params["parent_id"]) &&
+            (!params["ids"] || String(params["ids"]).split(",").includes(t["id"])),
         ),
       );
     }
@@ -95,7 +105,10 @@ export class FakeTodoist implements Api {
     const [, collection, id, action] = path.split("/");
     if (collection === "tasks" && !id) {
       const { deadline_date, due_date, ...rest } = body;
+      // A subtask lives where its parent does, as in Todoist.
+      const parent = body["parent_id"] ? this.#find(this.tasks, String(body["parent_id"])) : null;
       return this.task({
+        ...(parent ? { project_id: parent["project_id"], section_id: parent["section_id"] } : {}),
         ...rest,
         deadline: deadline_date ? { date: deadline_date, lang: "en" } : null,
         due: due_date ? { date: due_date, is_recurring: false } : null,
@@ -117,7 +130,16 @@ export class FakeTodoist implements Api {
       return null;
     }
     if (collection === "tasks" && action === "move") {
-      return Object.assign(this.#find(this.tasks, id ?? ""), body);
+      const task = this.#find(this.tasks, id ?? "");
+      // As Todoist does: a section carries its project along.
+      if (body["section_id"]) {
+        const section = this.#find(this.sections, String(body["section_id"]));
+        return Object.assign(task, {
+          section_id: section["id"],
+          project_id: section["project_id"],
+        });
+      }
+      return Object.assign(task, { section_id: null, ...body });
     }
     if (collection === "projects" && !id) return this.project(String(body["name"]), body);
     if (collection === "sections" && !id) {
