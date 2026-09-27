@@ -78,7 +78,12 @@ export function describeNudge(n: Nudge): OpRow {
 
 export async function runNudge(
   progress: Progress,
-  options: { dryRun?: boolean; days?: number; force?: boolean; today?: Day } = {},
+  options: {
+    dryRun?: boolean | undefined;
+    days?: number | undefined;
+    force?: boolean | undefined;
+    today?: Day;
+  } = {},
 ) {
   const today = options.today ?? localToday();
   const api = client();

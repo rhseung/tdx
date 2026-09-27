@@ -17,7 +17,8 @@ export const CHECKOUT = resolve(import.meta.dir, "../..");
 // elsewhere has no checkout to sit in, and falling back beats quietly starting
 // a second record inside node_modules.
 export function stateDir(): string {
-  if (process.env.TDX_STATE_DIR) return process.env.TDX_STATE_DIR;
+  const override = process.env["TDX_STATE_DIR"];
+  if (override) return override;
   if (existsSync(join(CHECKOUT, "package.json"))) return join(CHECKOUT, "state");
   return join(homedir(), ".local/state/tdx");
 }

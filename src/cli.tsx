@@ -197,7 +197,7 @@ withOutput(
   };
   if (output.mode === "plain") return showTable(table, output);
 
-  const agentLine = !status.installed
+  const agentLine: [string, string] = !status.installed
     ? ["not installed", color.warn]
     : !status.loaded
       ? [`installed but not loaded (every ${status.interval}s)`, color.warn]

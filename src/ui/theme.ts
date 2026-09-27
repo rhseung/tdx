@@ -22,6 +22,11 @@ export const priorityColor: Record<number, string> = {
   1: "gray",
 };
 
+// Ink's Text types `color` without undefined, and exactOptionalPropertyTypes
+// holds it to that, so an optional colour is passed only when there is one.
+export const tint = (value: string | undefined): { color?: string } =>
+  value ? { color: value } : {};
+
 export const priorityLabel = (apiPriority: number): string => `p${5 - apiPriority}`;
 
 export const symbol = {

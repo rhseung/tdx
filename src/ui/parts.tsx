@@ -1,6 +1,6 @@
 import { Box, Text } from "ink";
 import { fit, width } from "./text.ts";
-import { color, priorityColor, priorityLabel, symbol } from "./theme.ts";
+import { color, priorityColor, priorityLabel, symbol, tint } from "./theme.ts";
 
 export function Badge({ text, tint }: { text: string; tint: string }) {
   return (
@@ -28,8 +28,8 @@ export function ErrorBox({ title, message }: { title: string; message: string })
 export function Summary({ parts }: { parts: [string, string | undefined][] }) {
   return (
     <Text>
-      {parts.map(([text, tint], i) => (
-        <Text key={text} color={tint}>
+      {parts.map(([text, shade], i) => (
+        <Text key={text} {...tint(shade)}>
           {i ? " · " : ""}
           {text}
         </Text>

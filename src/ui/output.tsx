@@ -60,7 +60,7 @@ export interface TableOutput<R> {
   rows: R[];
   id: (row: R) => string;
   json: (row: R) => unknown;
-  title?: string;
+  title?: string | undefined;
   empty?: string;
 }
 

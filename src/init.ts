@@ -5,6 +5,10 @@
 
 export const SHELLS = ["zsh", "bash"] as const;
 
+// Shell parameter expansion, meant to reach the script exactly as written.
+// biome-ignore lint/suspicious/noTemplateCurlyInString: it is shell, not a template
+const PICKER_DEFAULT = "${TDX_PICKER:-fzf}";
+
 export function initScript(subcommands: string[]): string {
   const cases = [...new Set(subcommands)].join("|");
   return String.raw`# tdx: the td subcommands it adds
@@ -24,6 +28,6 @@ tdx-edit() {
 }
 
 # With fzf around, commands given no id pick with it too.
-command -v fzf >/dev/null && export TDX_PICKER="${"${TDX_PICKER:-fzf}"}"
+command -v fzf >/dev/null && export TDX_PICKER="${PICKER_DEFAULT}"
 `;
 }

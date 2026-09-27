@@ -42,8 +42,8 @@ test("unassigned issues I opened are collected", async () => {
     get: async (path: string, params: Params = {}) => {
       if (path === "/issues") return [];
       if (path === "/search/issues") {
-        queries.push(String(params.q));
-        return { items: results[String(params.q)] ?? [] };
+        queries.push(String(params["q"]));
+        return { items: results[String(params["q"])] ?? [] };
       }
       return REPO;
     },

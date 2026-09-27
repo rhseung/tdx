@@ -15,7 +15,7 @@ import {
   weekday,
 } from "../core/day.ts";
 import { isMouse } from "./mouse.ts";
-import { color } from "./theme.ts";
+import { color, tint } from "./theme.ts";
 
 const MONTHS = [
   "January",
@@ -118,7 +118,7 @@ export function DatePicker({
                 <Text
                   inverse={day === cursor}
                   dimColor={!inMonth}
-                  color={isChosen ? color.warn : marked.has(day) ? color.accent : undefined}
+                  {...tint(isChosen ? color.warn : marked.has(day) ? color.accent : undefined)}
                   underline={day === today}
                   strikethrough={isChosen}
                 >

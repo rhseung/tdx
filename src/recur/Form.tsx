@@ -12,7 +12,7 @@ import { type Day, today as localToday } from "../core/day.ts";
 import { DatePicker } from "../ui/DatePicker.tsx";
 import { isMouse } from "../ui/mouse.ts";
 import { fit } from "../ui/text.ts";
-import { color, symbol } from "../ui/theme.ts";
+import { color, symbol, tint } from "../ui/theme.ts";
 import { type Draft, ruleOf, TITLE_EMPTY, validate } from "./draft.ts";
 import {
   appearsOn,
@@ -128,6 +128,9 @@ export function Form({ heading, initial, projects, isNew, onSave, onCancel }: Fo
         return set({ lead: Math.max(0, draft.lead + step) });
       case "due":
         return set({ due: (draft.due ?? 0) + step });
+      default:
+        // Text, dates and the project change through enter, not the arrows.
+        return;
     }
   };
 
@@ -332,7 +335,7 @@ export function Form({ heading, initial, projects, isNew, onSave, onCancel }: Fo
       <Box flexDirection="column" marginTop={1}>
         {fields.map((field) => (
           <Box key={field} gap={1}>
-            <Text color={focus === field ? color.accent : undefined}>
+            <Text {...tint(focus === field ? color.accent : undefined)}>
               {focus === field ? symbol.arrow : " "}
             </Text>
             <Text color={color.muted}>{fit(LABELS[field], labelWidth)}</Text>
@@ -401,7 +404,7 @@ function Preview({
               due ? `due ${short(due)}` : "",
             ].join("  ");
         return (
-          <Text key={o.deadline} color={o.skipped ? color.muted : undefined} wrap="truncate-end">
+          <Text key={o.deadline} {...tint(o.skipped ? color.muted : undefined)} wrap="truncate-end">
             {line}
           </Text>
         );

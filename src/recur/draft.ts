@@ -112,7 +112,7 @@ export interface Saved {
 export async function saveDraft(
   api: Api,
   draft: Draft,
-  target: { templatesProjectId: string; existing?: Checked },
+  target: { templatesProjectId: string; existing?: Checked | undefined },
 ): Promise<Saved> {
   const description = format(ruleOf(draft), draft.notes);
   const content = draft.title.trim();

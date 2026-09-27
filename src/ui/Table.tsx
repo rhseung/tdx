@@ -2,7 +2,7 @@ import { Box, Text, useApp, useInput, useStdout, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
 import { enableMouse, isMouse, wheelDelta } from "./mouse.ts";
 import { type ColumnSpec, fit, fitColumns, GAP } from "./text.ts";
-import { color } from "./theme.ts";
+import { color, tint } from "./theme.ts";
 
 export interface Column<R> extends ColumnSpec {
   value: (row: R) => string;
@@ -38,7 +38,7 @@ export function Table<R>({ columns, rows, width, offset = 0, height, cursor }: T
         return (
           <Text key={at} inverse={selected} wrap="truncate-end">
             {columns.map((c, i) => (
-              <Text key={c.header} color={c.color?.(row)} dimColor={c.dim?.(row)}>
+              <Text key={c.header} {...tint(c.color?.(row))} dimColor={c.dim?.(row) ?? false}>
                 {fit(cells[at]?.[i] ?? "", widths[i] ?? 0, c.align)}
                 {i < columns.length - 1 ? gap : ""}
               </Text>
@@ -53,7 +53,7 @@ export function Table<R>({ columns, rows, width, offset = 0, height, cursor }: T
 export interface StickyTableProps<R> {
   columns: Column<R>[];
   rows: R[];
-  title?: string;
+  title?: string | undefined;
   // Lines the caller draws around the table, so the body knows how much of the
   // screen is left for it.
   reserved?: number;

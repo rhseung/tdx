@@ -33,7 +33,7 @@ export function describeRecurOp(op: RecurOp): OpRow {
 
 export async function runRecur(
   progress: Progress,
-  options: { dryRun?: boolean; ids?: string[]; today?: Day } = {},
+  options: { dryRun?: boolean | undefined; ids?: string[]; today?: Day } = {},
 ) {
   const today = options.today ?? localToday();
   const api = todoist.client();

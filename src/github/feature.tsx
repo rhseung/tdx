@@ -8,10 +8,12 @@ import * as gh from "./gh.ts";
 import { COMPLETE_CAP, GRACE_DAYS, type Op, reconcile } from "./reconcile.ts";
 import { load, migrateLegacy, save } from "./state.ts";
 
+// `| undefined` throughout: these arrive straight from command-line flags,
+// where an option not given is undefined rather than absent.
 export interface SyncOptions {
-  dryRun?: boolean;
-  force?: boolean;
-  grace?: number;
+  dryRun?: boolean | undefined;
+  force?: boolean | undefined;
+  grace?: number | undefined;
 }
 
 // "[#42](https://...) fix thing" reads as "#42 fix thing" in a terminal.

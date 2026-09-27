@@ -6,7 +6,7 @@ fnox = "1.35.2"
 run = "bun test"
 
 [tasks.lint]
-run = "bunx biome check ."
+run = "bunx biome check --error-on-warnings ."
 
 [tasks.typecheck]
 run = "bunx tsc --noEmit"

@@ -14,7 +14,7 @@ import {
 import { Fields } from "../ui/parts.tsx";
 import { pick } from "../ui/pick.tsx";
 import { withProgress } from "../ui/progress.tsx";
-import { color, symbol } from "../ui/theme.ts";
+import { color, symbol, tint } from "../ui/theme.ts";
 import { RecurApp } from "./App.tsx";
 import { occurrenceColumns, templateColumns } from "./columns.ts";
 import { loadChecked, occurrenceRows, runRecur, templateRows } from "./feature.tsx";
@@ -182,7 +182,7 @@ export function registerRecur(program: Command): Command {
           <Box flexDirection="column">
             <Text bold>next</Text>
             {upcoming.map((line) => (
-              <Text key={line} color={line.includes("skipped") ? color.muted : undefined}>
+              <Text key={line} {...tint(line.includes("skipped") ? color.muted : undefined)}>
                 {line}
               </Text>
             ))}

@@ -29,8 +29,8 @@ export function Result({
   dryRun,
 }: {
   ops: OpRow[];
-  summary?: string;
-  dryRun?: boolean;
+  summary?: string | undefined;
+  dryRun?: boolean | undefined;
 }) {
   if (!ops.length) {
     return (

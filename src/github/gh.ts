@@ -124,7 +124,7 @@ export async function desired(api: Api): Promise<Item[]> {
   return [...items.values()];
 }
 
-function neverHappened(node: { stateReason?: string | null; state?: string }): boolean {
+function neverHappened(node: z.output<typeof DiscardedNode>): boolean {
   return DISCARDED_REASONS.has(node.stateReason ?? "") || node.state === DISCARDED_STATE;
 }
 

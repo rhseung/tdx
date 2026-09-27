@@ -65,7 +65,7 @@ export class Client implements Api {
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       },
       // null has to survive: it is how a field such as deadline_date is cleared.
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? null : JSON.stringify(body),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const text = await response.text();

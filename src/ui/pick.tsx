@@ -66,7 +66,7 @@ export async function pick(
   preview?: string,
 ): Promise<string | null> {
   if (!choices.length) return null;
-  if (process.env.TDX_PICKER === "fzf" && Bun.which("fzf")) {
+  if (process.env["TDX_PICKER"] === "fzf" && Bun.which("fzf")) {
     return withFzf(choices, prompt, preview);
   }
   let picked: string | null = null;

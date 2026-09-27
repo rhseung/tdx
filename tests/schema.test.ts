@@ -47,7 +47,9 @@ test("a task whose deadline key is missing stops the read instead of reading as 
 });
 
 test("a deadline in another shape stops the read", async () => {
-  await expect(tasks(todoist([{ ...TASK, deadline: "2026-10-07" }]), {})).rejects.toThrow("deadline");
+  await expect(tasks(todoist([{ ...TASK, deadline: "2026-10-07" }]), {})).rejects.toThrow(
+    "deadline",
+  );
 });
 
 test("the error names the endpoint and the field", async () => {
