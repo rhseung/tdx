@@ -5,6 +5,7 @@
 
 import { type Day, daysBetween, today as localToday } from "../core/day.ts";
 import { type Key, sortBy } from "../core/order.ts";
+import type { Priority } from "../core/priority.ts";
 import {
   content,
   description,
@@ -64,7 +65,7 @@ export type Op =
       ghId: string;
       content: string;
       description: string;
-      priority: number;
+      priority: Priority;
       deadline: Day | null;
       labels: string[];
       project: ProjectRef;
@@ -75,7 +76,7 @@ export type Op =
       id: string;
       content: string;
       description: string;
-      priority: number;
+      priority: Priority;
       deadline: Day | null;
       labels: string[];
     }

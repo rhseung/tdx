@@ -3,6 +3,7 @@
 // Nothing here touches the network, so the pure logic and its tests stay cheap.
 
 import type { Day } from "../core/day.ts";
+import type { Priority } from "../core/priority.ts";
 
 export const ROOT_NAME = "GitHub";
 
@@ -92,7 +93,7 @@ export function sectionDescription(item: Item): string {
   return `[${item.repoName}](${ownerUrl(item)}/${item.repoName})`;
 }
 
-export function priority(item: Item): number {
+export function priority(item: Item): Priority {
   return item.isPr ? PRIORITY_PR : PRIORITY_ISSUE;
 }
 
@@ -123,7 +124,7 @@ export interface TaskInfo {
   content: string;
   projectId: string;
   sectionId: string | null;
-  priority: number;
+  priority: Priority;
   deadline: Day | null;
   labels: string[];
   description: string;

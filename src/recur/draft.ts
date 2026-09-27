@@ -6,6 +6,7 @@
 
 import { addDays, type Day, today as localToday, weekday } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
+import type { Priority } from "../core/priority.ts";
 import { t } from "../i18n/index.ts";
 import { createdId } from "./io.ts";
 import type { Checked } from "./plan.ts";
@@ -25,7 +26,7 @@ export interface Draft {
   project: string | null;
   section: string | null;
   labels: string[];
-  priority: number; // as the API counts: 4 is p1, 1 is p4
+  priority: Priority;
   subtasks: string[];
   notes: string;
 }

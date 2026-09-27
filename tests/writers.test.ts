@@ -5,7 +5,7 @@ import { apply, snapshot } from "../src/github/apply.ts";
 import type { Op } from "../src/github/reconcile.ts";
 import { emptyState, type GithubState } from "../src/github/state.ts";
 import { applyNudges, loadState as loadNudgeState, runNudge } from "../src/nudge/nudge.ts";
-import { blankDraft, draftOf, ruleOf, saveDraft } from "../src/recur/draft.ts";
+import { blankDraft, type Draft, draftOf, ruleOf, saveDraft } from "../src/recur/draft.ts";
 import { occurrenceRows, runRecur, templateRows } from "../src/recur/feature.tsx";
 import {
   applyOps,
@@ -439,7 +439,7 @@ test("labels and priority chosen in the form are the template's, and reach its w
   const fake = new FakeTodoist();
   fake.project("Inbox", { inbox_project: true });
   const templates = fake.project("Templates");
-  const draft = {
+  const draft: Draft = {
     ...blankDraft(TODAY),
     title: "화학 실험 {n}주차",
     labels: ["lab", "화학"],

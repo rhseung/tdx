@@ -6,6 +6,7 @@
 // out on schedule whether last week's was handed in or not.
 
 import type { Day } from "../core/day.ts";
+import type { Priority } from "../core/priority.ts";
 import {
   appearsOn,
   dueFor,
@@ -20,7 +21,7 @@ export interface TemplateTask {
   id: string;
   content: string;
   description: string;
-  priority: number;
+  priority: Priority;
   labels: string[];
   children: (NewTask & { id: string })[];
 }
@@ -55,7 +56,7 @@ export const emptyRecurState = (): RecurState => ({
 export interface Written {
   content: string;
   description: string;
-  priority: number;
+  priority: Priority;
   labels: string[];
   deadline: Day | null;
   due: Day | null;
@@ -105,7 +106,7 @@ export const CREATE_CAP = 30;
 interface NewTask {
   content: string;
   description: string;
-  priority: number;
+  priority: Priority;
   labels: string[];
 }
 

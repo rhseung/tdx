@@ -1,11 +1,34 @@
 import { describe, expect, test } from "bun:test";
-import { render } from "ink-testing-library";
+import { render as renderInk } from "ink-testing-library";
 import { blankDraft, type Draft, ruleOf, validate } from "../src/recur/draft.ts";
 import { Form } from "../src/recur/form.tsx";
 import { format, parse } from "../src/recur/rule.ts";
 import { DatePicker, monthGrid, shiftMonth } from "../src/ui/date-picker.tsx";
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 40));
+// Every screen a test draws, so a wait can tell when they have all settled.
+const drawn: { frames: string[] }[] = [];
+const render: typeof renderInk = (node) => {
+  const view = renderInk(node);
+  drawn.push(view);
+  return view;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const frameCount = () => drawn.reduce((n, v) => n + v.frames.length, 0);
+
+// Waits until no screen has drawn a new frame for a while, rather than a
+// fixed time: with the linter and type checker running alongside, a render
+// can take longer than any fixed delay, and a key sent before it lands
+// reaches the wrong screen.
+async function tick() {
+  let seen = -1;
+  for (let i = 0; i < 100; i++) {
+    await sleep(25);
+    const now = frameCount();
+    if (now === seen && i >= 1) return;
+    seen = now;
+  }
+}
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI is the point
 const strip = (s: string | undefined) => (s ?? "").replace(/\x1b\[[0-9;]*m/g, "");
 const DOWN = "\x1b[B";

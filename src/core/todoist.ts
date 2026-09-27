@@ -4,6 +4,7 @@
 import type { z } from "zod";
 import type { Day } from "./day.ts";
 import { type Api, Client, type Params } from "./http.ts";
+import type { Priority } from "./priority.ts";
 import { page, parse, TodoistProject, TodoistTask } from "./schema.ts";
 import { cliToken } from "./token.ts";
 
@@ -43,7 +44,7 @@ export interface Task {
   projectId: string;
   sectionId: string | null;
   parentId: string | null;
-  priority: number;
+  priority: Priority;
   labels: string[];
   deadline: Day | null;
   due: Day | null;

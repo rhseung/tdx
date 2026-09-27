@@ -47,7 +47,7 @@ export const TodoistTask = z.object({
   project_id: id,
   section_id: id.nullable(),
   parent_id: id.nullable(),
-  priority: z.number().int().min(1).max(4),
+  priority: z.literal([1, 2, 3, 4]),
   labels: z.array(z.string()),
   deadline: z.object({ date: Day }).nullable(),
   due: z
@@ -161,7 +161,7 @@ export const RecurStateFile = z.object({
       z.object({
         content: z.string(),
         description: z.string(),
-        priority: z.number().int(),
+        priority: z.literal([1, 2, 3, 4]),
         labels: z.array(z.string()),
         deadline: Day.nullable(),
         due: Day.nullable(),

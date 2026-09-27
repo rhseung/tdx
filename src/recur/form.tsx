@@ -9,6 +9,7 @@ import { MultiSelect, Select, TextInput } from "@inkjs/ui";
 import { Box, Text, useInput } from "ink";
 import { type ReactNode, useMemo, useState } from "react";
 import { type Day, today as localToday } from "../core/day.ts";
+import { clampPriority, fromLabel, PRIORITIES, priorityLabel } from "../core/priority.ts";
 import { t } from "../i18n/index.ts";
 import { DatePicker } from "../ui/date-picker.tsx";
 import { isMouse } from "../ui/mouse.ts";
@@ -126,7 +127,7 @@ export function Form({
         return change((d) => ({ due: (d.due ?? 0) + step }));
       case "priority":
         // Right is towards p1, which is API priority 4.
-        return change((d) => ({ priority: Math.min(4, Math.max(1, d.priority + step)) }));
+        return change((d) => ({ priority: clampPriority(d.priority + step) }));
       default:
         // Text, dates and the project change through enter, not the arrows.
         return;
@@ -149,9 +150,9 @@ export function Form({
       if (key.downArrow || key.tab) return move(1);
       if (key.leftArrow) return adjust(-1);
       if (key.rightArrow) return adjust(1);
-      // 1-4 as written in Todoist: p1 is the highest, API priority 4.
+      // 1-4 as the app writes them: 1 is p1.
       if (focus === "priority" && /^[1-4]$/.test(input)) {
-        return set({ priority: 5 - Number(input) });
+        return set({ priority: fromLabel(Number(input)) });
       }
       if (focus === "on" && draft.mode === "weekly") {
         if (input === " ") return toggleDay(dayCursor);
@@ -267,14 +268,14 @@ export function Form({
       case "priority":
         return (
           <Text>
-            {[4, 3, 2, 1].map((p) => (
+            {PRIORITIES.map((p) => (
               <Text key={p}>
                 <Text
                   inverse={p === draft.priority}
                   {...tint(priorityColor[p])}
                   bold={p === draft.priority}
                 >
-                  {` p${5 - p} `}
+                  {` ${priorityLabel(p)} `}
                 </Text>{" "}
               </Text>
             ))}
