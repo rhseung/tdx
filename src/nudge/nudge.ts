@@ -76,6 +76,27 @@ function describeNudge(n: Nudge): OpRow {
   return { change: "update", verb: "today", text: `${n.content}  deadline ${n.deadline}` };
 }
 
+// Each nudge is recorded as it lands, and the record is saved even if a later
+// one fails, so a task already moved is never moved again.
+export async function applyNudges(
+  api: Api,
+  state: NudgeState,
+  nudges: Nudge[],
+  today: Day,
+  onEach: (index: number) => void = () => {},
+): Promise<void> {
+  try {
+    for (const [i, n] of nudges.entries()) {
+      await api.post(`/tasks/${n.id}`, { due_date: n.due });
+      state.nudged[n.id] = today;
+      onEach(i);
+    }
+  } finally {
+    prune(state, today);
+    writeJson(statePath("nudge"), state);
+  }
+}
+
 export async function runNudge(
   progress: Progress,
   options: {
@@ -83,10 +104,11 @@ export async function runNudge(
     days?: number | undefined;
     force?: boolean | undefined;
     today?: Day;
+    api?: Api;
   } = {},
 ) {
   const today = options.today ?? localToday();
-  const api = client();
+  const api = options.api ?? client();
   const state = loadState();
   const tasks = await progress.step(
     "Read deadlines",
@@ -105,18 +127,8 @@ export async function runNudge(
   if (!options.dryRun) {
     await progress.step(
       "Apply",
-      async () => {
-        try {
-          for (const [i, n] of nudges.entries()) {
-            await api.post(`/tasks/${n.id}`, { due_date: n.due });
-            state.nudged[n.id] = today;
-            progress.note(`${i + 1}/${nudges.length}`);
-          }
-        } finally {
-          prune(state, today);
-          writeJson(statePath("nudge"), state);
-        }
-      },
+      () =>
+        applyNudges(api, state, nudges, today, (i) => progress.note(`${i + 1}/${nudges.length}`)),
       () => `${nudges.length} applied`,
     );
   }

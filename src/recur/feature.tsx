@@ -1,6 +1,7 @@
 // `tdx recur`: assignments that come out on a schedule.
 
 import { type Day, today as localToday } from "../core/day.ts";
+import type { Api } from "../core/http.ts";
 import * as todoist from "../core/todoist.ts";
 import type { OpRow } from "../ui/parts.tsx";
 import type { Progress } from "../ui/progress.tsx";
@@ -33,10 +34,10 @@ function describeRecurOp(op: RecurOp): OpRow {
 
 export async function runRecur(
   progress: Progress,
-  options: { dryRun?: boolean | undefined; ids?: string[]; today?: Day } = {},
+  options: { dryRun?: boolean | undefined; ids?: string[]; today?: Day; api?: Api } = {},
 ) {
   const today = options.today ?? localToday();
-  const api = todoist.client();
+  const api = options.api ?? todoist.client();
   const state = loadState();
   const workspace = await progress.step(
     "Read templates",

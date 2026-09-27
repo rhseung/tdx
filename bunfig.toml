@@ -1,0 +1,9 @@
+[test]
+preload = ["./tests/setup.ts"]
+coverageSkipTestFiles = true
+# Bun holds every file to this on its own, not the total, so it is a floor
+# under the least covered file: coverage can rise, never quietly drop.
+coverageThreshold = { lines = 0.75, functions = 0.70 }
+# Shells out to `td` and `gh` for a token; there is nothing to assert without
+# a real login.
+coveragePathIgnorePatterns = ["src/core/token.ts"]
