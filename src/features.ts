@@ -24,17 +24,17 @@ export const FEATURES: Feature[] = [
   {
     name: "gh",
     description: "mirror GitHub issues and PRs assigned to me",
-    run: (progress, { dryRun }) => syncGithub(progress, { dryRun }),
+    run: syncGithub,
   },
   {
     name: "recur",
     description: "make recurring assignments from the Templates project",
-    run: (progress, { dryRun }) => runRecur(progress, { dryRun }),
+    run: runRecur,
   },
   // Last, so a task recur made this run is already there to be looked at.
   {
     name: "nudge",
     description: "pull tasks with a near deadline and no due date into Today",
-    run: (progress, { dryRun }) => runNudge(progress, { dryRun }),
+    run: runNudge,
   },
 ];

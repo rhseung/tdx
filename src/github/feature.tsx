@@ -1,5 +1,6 @@
 // `tdx gh sync`: bring Todoist in line with GitHub.
 
+import type { Api } from "../core/http.ts";
 import * as todoist from "../core/todoist.ts";
 import type { OpRow } from "../ui/parts.tsx";
 import type { Progress } from "../ui/progress.tsx";
@@ -14,6 +15,8 @@ export interface SyncOptions {
   dryRun?: boolean | undefined;
   force?: boolean | undefined;
   grace?: number | undefined;
+  github?: Api;
+  todoist?: Api;
 }
 
 // "[#42](https://...) fix thing" reads as "#42 fix thing" in a terminal.
@@ -61,7 +64,7 @@ export async function syncGithub(progress: Progress, options: SyncOptions = {}) 
 
   // GitHub is read first and on its own: if it fails, nothing is written, so a
   // degraded response can never be mistaken for "all my work is done".
-  const hub = gh.client();
+  const hub = options.github ?? gh.client();
   const { items, discarded } = await progress.step(
     "Read GitHub",
     async () => {
@@ -73,7 +76,7 @@ export async function syncGithub(progress: Progress, options: SyncOptions = {}) 
     ({ items }) => `${items.length} items`,
   );
 
-  const api = todoist.client();
+  const api = options.todoist ?? todoist.client();
   const snap = await progress.step(
     "Read Todoist",
     () => snapshot(api, state),
