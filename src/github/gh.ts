@@ -1,6 +1,16 @@
 // What GitHub currently hands me.
 
-import { type Api, Client, type Json, type Params } from "../core/http.ts";
+import type { z } from "zod";
+import { type Api, Client, type Params } from "../core/http.ts";
+import {
+  DiscardedNode,
+  GithubIssue,
+  GithubRepo,
+  GithubSearch,
+  graphql,
+  parse,
+  RelationNode,
+} from "../core/schema.ts";
 import { cliToken } from "../core/token.ts";
 import type { Item, Ref } from "./models.ts";
 
@@ -40,19 +50,21 @@ export function client(): Client {
   return new Client(BASE_URL, cliToken("GITHUB_TOKEN", ["gh", "auth", "token"]), HEADERS);
 }
 
-function toItem(payload: Json, repo: Json, isPr: boolean): Item {
-  const owner = repo.owner;
-  const due: string | undefined = payload.milestone?.due_on ?? undefined;
+type Issue = z.output<typeof GithubIssue>;
+type Repo = z.output<typeof GithubRepo>;
+
+function toItem(payload: Issue, repo: Repo): Item {
+  const due = payload.milestone?.due_on;
   return {
     ghId: payload.node_id,
-    isPr,
+    isPr: payload.pull_request !== undefined,
     repoId: String(repo.id),
     repoName: repo.name,
-    ownerId: String(owner.id),
-    ownerLogin: owner.login,
-    ownerIsOrg: owner.type === "Organization",
+    ownerId: String(repo.owner.id),
+    ownerLogin: repo.owner.login,
+    ownerIsOrg: repo.owner.type === "Organization",
     number: payload.number,
-    title: String(payload.title).split(/\s+/).filter(Boolean).join(" "),
+    title: payload.title.split(/\s+/).filter(Boolean).join(" "),
     url: payload.html_url,
     deadline: due ? due.slice(0, 10) : null,
     blockedBy: [],
@@ -60,10 +72,11 @@ function toItem(payload: Json, repo: Json, isPr: boolean): Item {
   };
 }
 
-async function* pages(api: Api, path: string, params: Params): AsyncGenerator<Json> {
+async function* pages(api: Api, path: string, params: Params): AsyncGenerator<Issue> {
   for (let page = 1; ; page++) {
-    const batch: Json[] = await api.get(path, { per_page: PER_PAGE, page, ...params });
-    if (!batch?.length) return;
+    const reply = await api.get(path, { per_page: PER_PAGE, page, ...params });
+    const batch = parse(GithubIssue.array(), reply ?? [], `GET ${path}`);
+    if (!batch.length) return;
     yield* batch;
     if (batch.length < PER_PAGE) return;
   }
@@ -80,47 +93,64 @@ async function* pages(api: Api, path: string, params: Params): AsyncGenerator<Js
 // finds get one cached repository lookup each.
 export async function desired(api: Api): Promise<Item[]> {
   const items = new Map<string, Item>();
-  const repos = new Map<string, Json>();
+  const repos = new Map<string, Repo>();
 
   for await (const issue of pages(api, "/issues", { filter: "assigned", state: "open" })) {
     const repo = issue.repository;
+    if (!repo) throw new Error(`GET /issues: ${issue.node_id} came without its repository`);
     repos.set(repo.full_name, repo);
     if (repo.archived) continue;
-    items.set(issue.node_id, toItem(issue, repo, "pull_request" in issue));
+    items.set(issue.node_id, toItem(issue, repo));
   }
 
   for (const q of SEARCHES) {
-    const found = await api.get("/search/issues", { q, per_page: PER_PAGE });
+    const found = parse(
+      GithubSearch,
+      await api.get("/search/issues", { q, per_page: PER_PAGE }),
+      `search ${q}`,
+    );
     for (const payload of found.items) {
-      const fullName = String(payload.repository_url).replace(`${BASE_URL}/repos/`, "");
-      if (!repos.has(fullName)) repos.set(fullName, await api.get(`/repos/${fullName}`));
-      const repo = repos.get(fullName);
+      const fullName = (payload.repository_url ?? "").replace(`${BASE_URL}/repos/`, "");
+      let repo = repos.get(fullName);
+      if (!repo) {
+        repo = parse(GithubRepo, await api.get(`/repos/${fullName}`), `GET /repos/${fullName}`);
+        repos.set(fullName, repo);
+      }
       if (repo.archived) continue;
-      items.set(payload.node_id, toItem(payload, repo, "pull_request" in payload));
+      items.set(payload.node_id, toItem(payload, repo));
     }
   }
 
   return [...items.values()];
 }
 
-function neverHappened(node: Json): boolean {
-  return DISCARDED_REASONS.has(node.stateReason) || node.state === DISCARDED_STATE;
+function neverHappened(node: { stateReason?: string | null; state?: string }): boolean {
+  return DISCARDED_REASONS.has(node.stateReason ?? "") || node.state === DISCARDED_STATE;
 }
 
-async function* nodeBatches(api: Api, query: string, ids: string[], what: string) {
+async function* nodeBatches<N extends z.ZodType>(
+  api: Api,
+  query: string,
+  node: N,
+  ids: string[],
+  what: string,
+): AsyncGenerator<z.output<N> | null> {
+  const reply = graphql(node);
   for (let start = 0; start < ids.length; start += NODES_PER_CALL) {
-    const body = await api.post("/graphql", {
-      query,
-      variables: { ids: ids.slice(start, start + NODES_PER_CALL) },
-    });
+    const variables = { ids: ids.slice(start, start + NODES_PER_CALL) };
+    const body = parse(
+      reply,
+      await api.post("/graphql", { query, variables }),
+      `the ${what} lookup`,
+    );
     // An id that no longer resolves -- issue deleted, access lost -- comes
     // back as a null node next to an error, with the rest of the batch intact.
     // That is the ordinary case here, so only a reply carrying no data at all
     // counts as a failure worth stopping the run for.
-    if (body?.data == null) {
-      throw new Error(`GitHub GraphQL refused the ${what} lookup: ${JSON.stringify(body?.errors)}`);
+    if (!body.data) {
+      throw new Error(`GitHub GraphQL refused the ${what} lookup: ${JSON.stringify(body.errors)}`);
     }
-    yield* body.data.nodes as Json[];
+    yield* body.data.nodes;
   }
 }
 
@@ -134,13 +164,21 @@ async function* nodeBatches(api: Api, query: string, ids: string[], what: string
 // through to one.
 export async function discarded(api: Api, ghIds: Iterable<string>): Promise<Set<string>> {
   const out = new Set<string>();
-  for await (const node of nodeBatches(api, DISCARDED_QUERY, [...ghIds].sort(), "node")) {
+  for await (const node of nodeBatches(
+    api,
+    DISCARDED_QUERY,
+    DiscardedNode,
+    [...ghIds].sort(),
+    "node",
+  )) {
     if (node && neverHappened(node)) out.add(node.id);
   }
   return out;
 }
 
-function openRefs(nodes: Json[]): Ref[] {
+type Edge = { id: string; number: number; state: string; repository: { nameWithOwner: string } };
+
+function openRefs(nodes: Edge[]): Ref[] {
   // A closed blocker no longer blocks, and a closed dependent no longer waits.
   return nodes
     .filter((n) => n.state === "OPEN")
@@ -158,7 +196,7 @@ export async function relations(api: Api, items: Item[]): Promise<Item[]> {
     .map((i) => i.ghId)
     .sort();
   const edges = new Map<string, [Ref[], Ref[]]>();
-  for await (const node of nodeBatches(api, RELATIONS_QUERY, ids, "relation")) {
+  for await (const node of nodeBatches(api, RELATIONS_QUERY, RelationNode, ids, "relation")) {
     if (node) edges.set(node.id, [openRefs(node.blockedBy.nodes), openRefs(node.blocking.nodes)]);
   }
   return items.map((item) => {

@@ -1,7 +1,8 @@
 // Todoist's current state for the GitHub tree, and how ops are carried out.
 
 import type { Api } from "../core/http.ts";
-import { allPages, toTask } from "../core/todoist.ts";
+import { Created, parse, TodoistLabel, TodoistProject, TodoistSection } from "../core/schema.ts";
+import { allPages, tasks as readTasks } from "../core/todoist.ts";
 import {
   LABEL_COLORS,
   type LabelInfo,
@@ -15,9 +16,13 @@ import {
 import type { Op, ProjectRef, SectionRef } from "./reconcile.ts";
 import { forget, type GithubState } from "./state.ts";
 
+// An id written into the state file has to be a real one: a create that came
+// back without it would otherwise be recorded as `undefined` and rebuilt.
+const created = (reply: unknown): string => parse(Created, reply, "a created object").id;
+
 async function ourLabels(api: Api): Promise<Record<string, LabelInfo>> {
   const out: Record<string, LabelInfo> = {};
-  for (const raw of await allPages(api, "/labels")) {
+  for (const raw of await allPages(api, "/labels", TodoistLabel)) {
     if (Object.hasOwn(LABEL_COLORS, raw.name)) out[raw.name] = { id: raw.id, color: raw.color };
   }
   return out;
@@ -29,7 +34,9 @@ async function ourLabels(api: Api): Promise<Record<string, LabelInfo>> {
 // both, so a project deleted by hand is simply rebuilt on the next run.
 export async function snapshot(api: Api, state: GithubState): Promise<Snapshot> {
   const labels = await ourLabels(api);
-  const projects = new Map((await allPages(api, "/projects")).map((p) => [p.id as string, p]));
+  const projects = new Map(
+    (await allPages(api, "/projects", TodoistProject)).map((p) => [p.id, p]),
+  );
   for (const projectId of Object.values(state.orgs)) {
     if (!projects.has(projectId)) forget(state, projectId);
   }
@@ -48,7 +55,7 @@ export async function snapshot(api: Api, state: GithubState): Promise<Snapshot> 
 
   const info = (id: string): ProjectInfo => {
     const raw = projects.get(id);
-    return { id, name: raw.name, description: raw.description ?? "" };
+    return { id, name: raw?.name ?? "", description: raw?.description ?? "" };
   };
   const orgs: Record<string, ProjectInfo> = {};
   for (const [ownerId, pid] of Object.entries(state.orgs)) {
@@ -62,7 +69,7 @@ export async function snapshot(api: Api, state: GithubState): Promise<Snapshot> 
   const occupied = new Set<string>();
   const seen = new Set<string>();
   for (const projectId of [state.root, ...Object.values(orgs).map((p) => p.id)]) {
-    for (const raw of await allPages(api, "/sections", { project_id: projectId })) {
+    for (const raw of await allPages(api, "/sections", TodoistSection, { project_id: projectId })) {
       seen.add(raw.id);
       const repoId = repoOf.get(raw.id);
       if (repoId) {
@@ -74,13 +81,12 @@ export async function snapshot(api: Api, state: GithubState): Promise<Snapshot> 
         });
       }
     }
-    for (const raw of await allPages(api, "/tasks", { project_id: projectId })) {
-      seen.add(raw.id);
-      occupied.add(raw.project_id);
-      if (raw.section_id) occupied.add(raw.section_id);
-      const ghId = ghOf.get(raw.id);
+    for (const task of await readTasks(api, { project_id: projectId })) {
+      seen.add(task.id);
+      occupied.add(task.projectId);
+      if (task.sectionId) occupied.add(task.sectionId);
+      const ghId = ghOf.get(task.id);
       if (ghId) {
-        const task = toTask(raw);
         tasks[ghId] = {
           id: task.id,
           content: task.content,
@@ -147,34 +153,34 @@ class Applier {
     const { api, state } = this;
     switch (op.kind) {
       case "CreateRoot":
-        state.root = (await api.post("/projects", { name: ROOT_NAME })).id;
+        state.root = created(await api.post("/projects", { name: ROOT_NAME }));
         return;
       case "CreateOrgProject":
-        state.orgs[op.ownerId] = (
+        state.orgs[op.ownerId] = created(
           await api.post("/projects", {
             name: op.name,
             parent_id: this.project({ kind: "newRoot" }),
             description: op.description,
-          })
-        ).id;
+          }),
+        );
         return;
       case "RenameProject":
         await api.post(`/projects/${op.id}`, { name: op.name });
         return;
       case "CreateSection":
-        state.sections[op.repoId] = (
+        state.sections[op.repoId] = created(
           await api.post("/sections", {
             name: op.name,
             project_id: this.project(op.project),
             description: op.description,
-          })
-        ).id;
+          }),
+        );
         return;
       case "RenameSection":
         await api.post(`/sections/${op.id}`, { name: op.name });
         return;
       case "CreateTask":
-        state.tasks[op.ghId] = (
+        state.tasks[op.ghId] = created(
           await api.post("/tasks", {
             content: op.content,
             description: op.description,
@@ -183,8 +189,8 @@ class Applier {
             project_id: this.project(op.project),
             section_id: this.section(op.section),
             deadline_date: op.deadline,
-          })
-        ).id;
+          }),
+        );
         return;
       case "UpdateTask":
         await api.post(`/tasks/${op.id}`, {

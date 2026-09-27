@@ -3,7 +3,8 @@
 // The last run is kept apart from the launchd log so `status` can answer "is
 // it working" without the reader digging through a log file.
 
-import { readJson, statePath, writeJson } from "./state.ts";
+import { ConfigFile, RunsFile } from "./schema.ts";
+import { readState, statePath, writeJson } from "./state.ts";
 
 export interface LastRun {
   at: string; // ISO timestamp
@@ -11,16 +12,11 @@ export interface LastRun {
   summary: string;
 }
 
-interface Config {
-  disabled: string[];
-}
-
 const CONFIG = () => statePath("config");
 const RUNS = () => statePath("runs");
 
 export function disabled(): Set<string> {
-  const raw = readJson(CONFIG()) as Partial<Config> | undefined;
-  return new Set(raw?.disabled ?? []);
+  return new Set(readState(CONFIG(), ConfigFile).disabled);
 }
 
 export function setEnabled(name: string, on: boolean): void {
@@ -31,7 +27,7 @@ export function setEnabled(name: string, on: boolean): void {
 }
 
 export function lastRuns(): Record<string, LastRun> {
-  return (readJson(RUNS()) as Record<string, LastRun> | undefined) ?? {};
+  return readState(RUNS(), RunsFile);
 }
 
 export function recordRun(name: string, ok: boolean, summary: string): void {

@@ -6,6 +6,7 @@
 
 import { addDays, type Day, today as localToday, weekday } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
+import { createdId } from "./io.ts";
 import type { Checked } from "./plan.ts";
 import { DEFAULT_LEAD, type Every, format, parse, type Rule } from "./rule.ts";
 
@@ -121,8 +122,9 @@ export async function saveDraft(
     id = existing.id;
     await api.post(`/tasks/${id}`, { content, description });
   } else {
-    id = (await api.post("/tasks", { content, description, project_id: target.templatesProjectId }))
-      .id;
+    id = createdId(
+      await api.post("/tasks", { content, description, project_id: target.templatesProjectId }),
+    );
   }
 
   const wanted = draft.subtasks.map((s) => s.trim()).filter(Boolean);

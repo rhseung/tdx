@@ -1,18 +1,20 @@
 // Templates in Todoist, and the tasks made from them.
 
 import type { Api } from "../core/http.ts";
-import { readJson, statePath, writeJson } from "../core/state.ts";
-import { allPages, type Project, projects, type Task, toTask } from "../core/todoist.ts";
-import { emptyRecurState, type RecurOp, type RecurState, type TemplateTask } from "./plan.ts";
+import { Created, parse, RecurStateFile } from "../core/schema.ts";
+import { readState, statePath, writeJson } from "../core/state.ts";
+import { type Project, projects, tasks as readTasks, type Task } from "../core/todoist.ts";
+import type { RecurOp, RecurState, TemplateTask } from "./plan.ts";
 
 // Templates live in one project of their own. A task there has no due date,
 // so it never shows up in Today or Upcoming, yet it is a plain Todoist task:
 // the phone app can edit a rule without this tool anywhere near.
 export const TEMPLATES_PROJECT = "Templates";
 
+export const createdId = (reply: unknown): string => parse(Created, reply, "a created object").id;
+
 export function loadState(path: string = statePath("recur")): RecurState {
-  const raw = readJson(path) as Partial<RecurState> | undefined;
-  return { ...emptyRecurState(), ...raw };
+  return readState(path, RecurStateFile);
 }
 
 export function saveState(state: RecurState, path: string = statePath("recur")): void {
@@ -60,7 +62,7 @@ export async function readWorkspace(api: Api): Promise<Workspace> {
   const all = await projects(api);
   const templatesProject = all.find((p) => p.name === TEMPLATES_PROJECT) ?? null;
   if (!templatesProject) return { projects: all, templatesProject, templates: [] };
-  const tasks = (await allPages(api, "/tasks", { project_id: templatesProject.id })).map(toTask);
+  const tasks = await readTasks(api, { project_id: templatesProject.id });
   return { projects: all, templatesProject, templates: toTemplates(tasks) };
 }
 
@@ -70,11 +72,11 @@ export async function ensureTemplatesProject(api: Api, workspace: Workspace): Pr
     name: TEMPLATES_PROJECT,
     description: "Recurring assignment templates for `tdx recur`. Each task here is a rule.",
   });
-  return created.id;
+  return createdId(created);
 }
 
 async function createTask(api: Api, body: Record<string, unknown>): Promise<string> {
-  return (await api.post("/tasks", body)).id;
+  return createdId(await api.post("/tasks", body));
 }
 
 // Records each op as soon as it lands, so a run that dies halfway still

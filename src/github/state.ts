@@ -11,7 +11,8 @@
 import { existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { type Day, isDay } from "../core/day.ts";
-import { CHECKOUT, readJson, statePath, writeJson } from "../core/state.ts";
+import { GithubStateFile } from "../core/schema.ts";
+import { CHECKOUT, readJson, readState, statePath, writeJson } from "../core/state.ts";
 
 export interface GithubState {
   root: string | null;
@@ -47,21 +48,22 @@ export function migrateLegacy(path: string = statePath("github")): void {
       `both ${legacy} and ${path} exist; keep the one that matches the Todoist tree and delete the other`,
     );
   }
+  // Checked before it moves, so a broken file stays where it was found.
+  readState(legacy, GithubStateFile);
   writeJson(path, readJson(legacy));
   renameSync(legacy, `${legacy}.migrated`);
 }
 
 export function load(path: string = statePath("github")): GithubState {
-  const raw = readJson(path) as Record<string, never> | undefined;
-  if (!raw) return emptyState();
   // Keys stay snake_case on disk: the file predates the port and has to read
   // back unchanged, since a mismatch here means a duplicate tree.
+  const raw = readState(path, GithubStateFile);
   return {
-    root: raw.root ?? null,
-    orgs: raw.orgs ?? {},
-    sections: raw.sections ?? {},
-    tasks: raw.tasks ?? {},
-    emptySince: raw.empty_since ?? {},
+    root: raw.root,
+    orgs: raw.orgs,
+    sections: raw.sections,
+    tasks: raw.tasks,
+    emptySince: raw.empty_since,
   };
 }
 

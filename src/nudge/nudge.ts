@@ -8,7 +8,8 @@
 
 import { addDays, type Day, daysBetween, today as localToday } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
-import { readJson, statePath, writeJson } from "../core/state.ts";
+import { NudgeStateFile, TodoistTask } from "../core/schema.ts";
+import { readState, statePath, writeJson } from "../core/state.ts";
 import { allPages, client, type Task, toTask } from "../core/todoist.ts";
 import type { OpRow } from "../ui/parts.tsx";
 import type { Progress } from "../ui/progress.tsx";
@@ -64,12 +65,11 @@ export function prune(state: NudgeState, today: Day): void {
 }
 
 export function loadState(path = statePath("nudge")): NudgeState {
-  const raw = readJson(path) as Partial<NudgeState> | undefined;
-  return { nudged: raw?.nudged ?? {} };
+  return readState(path, NudgeStateFile);
 }
 
 export async function candidates(api: Api): Promise<Task[]> {
-  return (await allPages(api, "/tasks/filter", { query: QUERY })).map(toTask);
+  return (await allPages(api, "/tasks/filter", TodoistTask, { query: QUERY })).map(toTask);
 }
 
 export function describeNudge(n: Nudge): OpRow {

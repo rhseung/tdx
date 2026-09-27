@@ -19,6 +19,7 @@ function found(nodeId: string, number: number, isPr: boolean): Json {
     title: "t",
     html_url: `https://github.com/rhseung/rhseung/issues/${number}`,
     repository_url: `${BASE_URL}/repos/rhseung/rhseung`,
+    milestone: null,
     ...(isPr ? { pull_request: {} } : {}),
   };
 }
@@ -99,5 +100,5 @@ test("discarded survives an id GitHub no longer resolves", async () => {
 
 test("discarded stops the run when nothing came back", async () => {
   const api = fake({ post: async () => ({ errors: [{ message: "Bad credentials" }] }) });
-  expect(discarded(api, ["I_a"])).rejects.toThrow("Bad credentials");
+  await expect(discarded(api, ["I_a"])).rejects.toThrow("Bad credentials");
 });
