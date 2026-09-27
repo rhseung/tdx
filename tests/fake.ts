@@ -78,6 +78,12 @@ export class FakeTodoist implements Api {
     const page = (results: Row[]) => ({ results, next_cursor: null });
     if (path === "/projects") return page(this.projects);
     if (path === "/labels") return page(this.labels);
+    // As Todoist does: every name on a live task, whether or not a label
+    // object exists for it.
+    if (path === "/labels/shared") {
+      const names = new Set(this.tasks.flatMap((t) => (t["labels"] as string[]) ?? []));
+      return page([...names].sort() as unknown as Row[]);
+    }
     if (path === "/sections") {
       const project = params["project_id"];
       return page(
@@ -151,7 +157,8 @@ export class FakeTodoist implements Api {
       return row;
     }
     if (collection === "labels" && !id) {
-      const row = { id: this.#id("L"), ...body };
+      // Todoist gives a new label its default colour.
+      const row = { id: this.#id("L"), color: "charcoal", ...body };
       this.labels.push(row);
       return row;
     }

@@ -5,7 +5,7 @@
 // dates is the point; a wizard that asks one question at a time would hide the
 // consequence until the end.
 
-import { Select, TextInput } from "@inkjs/ui";
+import { MultiSelect, Select, TextInput } from "@inkjs/ui";
 import { Box, Text, useInput } from "ink";
 import { type ReactNode, useMemo, useState } from "react";
 import { type Day, today as localToday } from "../core/day.ts";
@@ -29,6 +29,7 @@ const FIELDS = [
   "due",
   "project",
   "section",
+  "labels",
   "subtasks",
   "notes",
   "save",
@@ -55,10 +56,11 @@ function choices([noneLabel, none]: [string, string], names: string[], current: 
 
 type Editing =
   | null
-  | { kind: "text"; field: "title" | "notes" | "subtasks" }
+  | { kind: "text"; field: "title" | "notes" | "subtasks" | "labels" }
   | { kind: "date"; field: "from" | "until" | "skip" }
   | { kind: "project" }
-  | { kind: "section" };
+  | { kind: "section" }
+  | { kind: "labels" };
 
 const short = (day: Day) => `${Number(day.slice(5, 7))}/${Number(day.slice(8))}`;
 
@@ -68,12 +70,23 @@ export interface FormProps {
   projects: string[];
   // Sections of a project by name; null is the Inbox.
   sections: (project: string | null) => string[];
+  // Label names the account has, to pick from; a new one can be typed.
+  labels?: string[];
   isNew: boolean;
   onSave: (draft: Draft) => void;
   onCancel: () => void;
 }
 
-export function Form({ heading, initial, projects, sections, isNew, onSave, onCancel }: FormProps) {
+export function Form({
+  heading,
+  initial,
+  projects,
+  sections,
+  labels = [],
+  isNew,
+  onSave,
+  onCancel,
+}: FormProps) {
   const [draft, setDraft] = useState<Draft>(initial);
   const [focus, setFocus] = useState<Field>("title");
   const [editing, setEditing] = useState<Editing>(isNew ? { kind: "text", field: "title" } : null);
@@ -138,6 +151,10 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
         if (focus === "subtasks") return set({ subtasks: draft.subtasks.slice(0, -1) });
         if (focus === "skip") return set({ skip: [] });
         if (focus === "section") return set({ section: null });
+        if (focus === "labels") return set({ labels: [] });
+      }
+      if (input === "a" && focus === "labels") {
+        return setEditing({ kind: "text", field: "labels" });
       }
       if (!key.return) return;
       switch (focus) {
@@ -153,6 +170,8 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
           return setEditing({ kind: "project" });
         case "section":
           return setEditing({ kind: "section" });
+        case "labels":
+          return setEditing({ kind: "labels" });
         case "save":
           return save();
         default:
@@ -233,6 +252,12 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
         return draft.project ?? t.recur.inbox;
       case "section":
         return draft.section ?? <Text color={color.muted}>{t.form.none}</Text>;
+      case "labels":
+        return draft.labels.length ? (
+          draft.labels.map((l) => `@${l}`).join(" ")
+        ) : (
+          <Text color={color.muted}>{t.form.none}</Text>
+        );
       case "subtasks":
         return draft.subtasks.length ? (
           draft.subtasks.join(", ")
@@ -254,19 +279,30 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
     if (!editing) return null;
     if (editing.kind === "text") {
       const field = editing.field;
-      const initialText = field === "subtasks" ? "" : draft[field];
+      const adding = field === "subtasks" || field === "labels";
+      const initialText = adding ? "" : draft[field];
       return (
         <EscapeAware onEscape={() => setEditing(null)}>
           <Box gap={1}>
             <Text color={color.accent}>
-              {field === "subtasks" ? t.form.newSubtask : LABELS[field]}
+              {field === "subtasks"
+                ? t.form.newSubtask
+                : field === "labels"
+                  ? t.form.newLabel
+                  : LABELS[field]}
             </Text>
             <TextInput
               defaultValue={initialText}
               placeholder={field === "title" ? t.form.titlePlaceholder : ""}
               onSubmit={(text) => {
+                const entry = text.trim().replace(/^@/, "");
                 if (field === "subtasks") {
-                  if (text.trim()) set({ subtasks: [...draft.subtasks, text.trim()] });
+                  if (entry) set({ subtasks: [...draft.subtasks, entry] });
+                } else if (field === "labels") {
+                  // Todoist makes a label the first time a task names it.
+                  if (entry && !draft.labels.includes(entry)) {
+                    set({ labels: [...draft.labels, entry] });
+                  }
                 } else set({ [field]: text });
                 setEditing(null);
                 if (field === "title" && isNew) move(1);
@@ -293,6 +329,32 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
             setEditing(null);
           }}
         />
+      );
+    }
+    if (editing.kind === "labels") {
+      const names = [...new Set([...labels, ...draft.labels])].sort();
+      if (!names.length) {
+        return (
+          <EscapeAware onEscape={() => setEditing(null)}>
+            <Text color={color.muted}>{t.form.noLabels}</Text>
+          </EscapeAware>
+        );
+      }
+      return (
+        <EscapeAware onEscape={() => setEditing(null)}>
+          <Box flexDirection="column">
+            <MultiSelect
+              visibleOptionCount={8}
+              options={names.map((n) => ({ label: `@${n}`, value: n }))}
+              defaultValue={draft.labels}
+              onSubmit={(picked) => {
+                set({ labels: picked });
+                setEditing(null);
+              }}
+            />
+            <Text color={color.muted}>{t.picker.multiKeys}</Text>
+          </Box>
+        </EscapeAware>
       );
     }
     if (editing.kind === "section") {

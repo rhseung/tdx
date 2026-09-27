@@ -62,9 +62,9 @@ tdx recur                   # 반복 과제 템플릿 목록. 터미널에서는
 tdx recur new               # 폼으로 템플릿 만들기
 tdx recur edit [id]         # 폼으로 고치기 (id 없으면 골라서)
 tdx recur preview [id]      # 회차별 deadline, due, 생성일, 상태
-tdx recur show <id>         # 템플릿 하나의 규칙과 다음 회차
+tdx recur show [id]         # 템플릿 하나의 규칙과 다음 회차 (id 없으면 골라서)
 tdx recur run --dry-run     # 지금 만들 회차 확인
-tdx recur rm <id...>        # 템플릿 삭제 (이미 만든 task는 남음)
+tdx recur rm [id...]        # 템플릿 삭제, 이미 만든 task는 남음 (id 없으면 여러 개 골라서)
 tdx nudge                   # deadline만 있는 task와 Today로 올라갈 날
 tdx nudge run --dry-run     # 지금 올릴 task 확인 (--days 로 기준 조절)
 tdx status                  # 에이전트 상태와 기능별 마지막 실행 결과
@@ -125,7 +125,7 @@ due가 없으므로 Today나 Upcoming에는 뜨지 않고, 평범한 task라서 
 | 제목 | 회차 task 이름. `{n}`은 회차 번호, `{date}`는 마감일(`10/2`)로 바뀝니다 |
 | 설명 | 아래 규칙. `---` 아래에 적은 내용은 회차 task의 설명으로 복사됩니다 |
 | 하위 task | 회차마다 그대로 복제됩니다. 제목의 `{n}`도 바뀝니다 |
-| label, 우선순위 | 그대로 복사됩니다 |
+| label, 우선순위 | 그대로 복사됩니다. label은 폼에서 고를 수 있습니다 |
 
 ```
 every: fri            # 요일. 월/화/수/목/금/토/일도 됩니다. `2 weeks mon, thu`, `month 15`
@@ -150,10 +150,12 @@ section: 실험 보고서    # 그 프로젝트 안의 섹션 (선택)
 | --- | --- |
 | 목록 (`tdx recur`) | `n` 새로 만들기, `e` 고치기, `d` 삭제, `enter` 회차 미리보기, `q` 나가기 |
 | 폼 | `↑`/`↓` 항목 이동, `←`/`→` 값 바꾸기, `enter` 편집, `x` 비우기, `ctrl+s` 저장, `esc` 취소 |
+| 라벨 | `enter`로 목록 열기, `space`로 여러 개 표시, `enter`로 확인. `a`는 새 라벨을 입력합니다 |
+| id를 받는 명령 | id를 빼면 이름으로 고르는 목록이 뜹니다. `rm`은 `space`로 여러 개를 고르고 한 번 더 확인합니다 |
 | 요일 | `←`/`→` 이동, `space` 또는 `1`-`7` 켜고 끄기 |
 | 달력 | 방향키 이동, `[` `]` 달 넘기기, `t` 오늘, `space` 여러 날 고르기, `enter` 확정 |
 
-`TDX_PICKER=fzf`를 두면 id 없이 부른 명령이 fzf로 고릅니다. `tdx init zsh`는 fzf가
+`TDX_PICKER=fzf`를 두면 id 없이 부른 명령이 fzf로 고릅니다. 새 라벨은 템플릿을 저장할 때 Todoist 개인 라벨로도 만들어서, Todoist 앱의 라벨 목록에 나옵니다. `tdx init zsh`는 fzf가
 있으면 이 값을 켜고, 템플릿을 골라 바로 폼을 여는 `tdx-edit` 함수도 만듭니다.
 
 회차 번호는 건너뛴 주를 빼고 셉니다. 휴강한 주가 번호를 차지하지 않으므로 "3주차"가 세

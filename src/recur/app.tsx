@@ -92,12 +92,17 @@ function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
         initial={initialDraft}
         projects={projects}
         sections={sectionNames(data.workspace)}
+        labels={data.workspace.labels}
         isNew={!existing}
         onCancel={back}
         onSave={(draft) =>
           busy(existing ? t.recur.saving : t.recur.creating, async () => {
             const templatesProjectId = await ensureTemplatesProject(api, data.workspace);
-            const saved = await saveDraft(api, draft, { templatesProjectId, existing });
+            const saved = await saveDraft(api, draft, {
+              templatesProjectId,
+              existing,
+              personalLabels: data.workspace.personalLabels,
+            });
             const done = `${symbol.ok} ${saved.created ? t.recur.created(draft.title) : t.recur.saved(draft.title)}`;
             // Applied now rather than on the agent's next pass, so what the
             // edit did to the weeks already made -- and which it left, having

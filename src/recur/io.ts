@@ -1,7 +1,8 @@
 // Templates in Todoist, and the tasks made from them.
 
+import { z } from "zod";
 import type { Api } from "../core/http.ts";
-import { Created, parse, RecurStateFile, TodoistSection } from "../core/schema.ts";
+import { Created, parse, RecurStateFile, TodoistLabel, TodoistSection } from "../core/schema.ts";
 import { readState, statePath, writeJson } from "../core/state.ts";
 import {
   allPages,
@@ -37,6 +38,10 @@ interface Section {
 export interface Workspace {
   projects: Project[];
   sections: Section[];
+  // Every label name in use, for the form's picker: personal labels, and the
+  // shared ones Todoist keeps for names that were only ever typed on a task.
+  labels: string[];
+  personalLabels: string[];
   templatesProject: Project | null;
   templates: TemplateTask[];
 }
@@ -102,10 +107,14 @@ export async function readWorkspace(api: Api): Promise<Workspace> {
     name: s.name,
     projectId: s.project_id,
   }));
+  const personalLabels = (await allPages(api, "/labels", TodoistLabel)).map((l) => l.name);
+  const shared = await allPages(api, "/labels/shared", z.string());
+  const labels = [...new Set([...personalLabels, ...shared])].sort();
   const templatesProject = all.find((p) => p.name === TEMPLATES_PROJECT) ?? null;
-  if (!templatesProject) return { projects: all, sections, templatesProject, templates: [] };
+  const base = { projects: all, sections, labels, personalLabels, templatesProject };
+  if (!templatesProject) return { ...base, templates: [] };
   const tasks = await readTasks(api, { project_id: templatesProject.id });
-  return { projects: all, sections, templatesProject, templates: toTemplates(tasks) };
+  return { ...base, templates: toTemplates(tasks) };
 }
 
 // Where the given tasks stand now. Only unfinished tasks come back, which is

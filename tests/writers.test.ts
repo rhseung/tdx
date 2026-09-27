@@ -5,7 +5,7 @@ import { apply, snapshot } from "../src/github/apply.ts";
 import type { Op } from "../src/github/reconcile.ts";
 import { emptyState, type GithubState } from "../src/github/state.ts";
 import { applyNudges, loadState as loadNudgeState, runNudge } from "../src/nudge/nudge.ts";
-import { draftOf, ruleOf, saveDraft } from "../src/recur/draft.ts";
+import { blankDraft, draftOf, ruleOf, saveDraft } from "../src/recur/draft.ts";
 import { occurrenceRows, runRecur, templateRows } from "../src/recur/feature.tsx";
 import {
   applyOps,
@@ -433,4 +433,24 @@ describe("recur edits", () => {
       expect.stringContaining("화학 실험 5주차"),
     ]);
   });
+});
+
+test("labels chosen in the form are the template's, and reach its weeks", async () => {
+  const fake = new FakeTodoist();
+  fake.project("Inbox", { inbox_project: true });
+  const templates = fake.project("Templates");
+  const draft = { ...blankDraft(TODAY), title: "화학 실험 {n}주차", labels: ["lab", "화학"] };
+  fake.labels.push({ id: "L1", name: "lab", color: "blue" });
+  const saved = await saveDraft(fake, draft, {
+    templatesProjectId: templates["id"],
+    personalLabels: ["lab"],
+  });
+  expect(fake.tasks.find((t) => t["id"] === saved.id)?.["labels"]).toEqual(["lab", "화학"]);
+  // Only the new name is made a personal label, as typing it in Todoist would.
+  expect(fake.labels.map((l) => l["name"])).toEqual(["lab", "화학"]);
+  const ws = await readWorkspace(fake);
+  expect(ws.labels).toEqual(["lab", "화학"]);
+  await runRecur(quiet(), { api: fake, today: draft.from });
+  const week = fake.tasks.find((t) => /\d주차$/.test(String(t["content"])));
+  expect(week?.["labels"]).toEqual(["lab", "화학"]);
 });

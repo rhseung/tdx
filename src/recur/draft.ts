@@ -24,6 +24,7 @@ export interface Draft {
   due: number | null;
   project: string | null;
   section: string | null;
+  labels: string[];
   subtasks: string[];
   notes: string;
 }
@@ -44,6 +45,7 @@ export function blankDraft(today: Day = localToday()): Draft {
     due: null,
     project: null,
     section: null,
+    labels: [],
     subtasks: [],
     notes: "",
   };
@@ -73,6 +75,7 @@ export function draftOf(checked: Checked): Draft {
     ...(every?.kind === "monthly"
       ? { mode: "monthly" as const, interval: every.interval, monthDay: every.day }
       : {}),
+    labels: template.labels,
     subtasks: template.children.map((c) => c.content),
     notes,
   };
@@ -117,18 +120,33 @@ export interface Saved {
 export async function saveDraft(
   api: Api,
   draft: Draft,
-  target: { templatesProjectId: string; existing?: Checked | undefined },
+  target: {
+    templatesProjectId: string;
+    existing?: Checked | undefined;
+    // Personal labels already there; a new name becomes one, as typing it in
+    // the Todoist app would -- the API alone leaves it a bare shared label.
+    personalLabels?: string[];
+  },
 ): Promise<Saved> {
+  const known = new Set(target.personalLabels ?? []);
+  for (const name of draft.labels) {
+    if (!known.has(name)) await api.post("/labels", { name });
+  }
   const description = format(ruleOf(draft), draft.notes);
   const content = draft.title.trim();
   const existing = target.existing?.template;
   let id: string;
   if (existing) {
     id = existing.id;
-    await api.post(`/tasks/${id}`, { content, description });
+    await api.post(`/tasks/${id}`, { content, description, labels: draft.labels });
   } else {
     id = createdId(
-      await api.post("/tasks", { content, description, project_id: target.templatesProjectId }),
+      await api.post("/tasks", {
+        content,
+        description,
+        labels: draft.labels,
+        project_id: target.templatesProjectId,
+      }),
     );
   }
 

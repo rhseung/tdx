@@ -12,6 +12,22 @@ const DOWN = "\x1b[B";
 const RIGHT = "\x1b[C";
 const ENTER = "\r";
 
+type View = { stdin: { write: (s: string) => void }; lastFrame: () => string | undefined };
+
+// Moves focus up until the arrow points at `label`, reading the screen rather
+// than counting presses, so a field added to the form breaks no test.
+async function focusOn(view: View, label: string) {
+  for (let i = 0; i < 20; i++) {
+    const line = strip(view.lastFrame())
+      .split("\n")
+      .find((l) => l.startsWith("→"));
+    if (line?.includes(label)) return;
+    view.stdin.write("\x1b[A");
+    await tick();
+  }
+  throw new Error(`no field ${label}`);
+}
+
 describe("calendar", () => {
   test("a month is six Monday-first weeks, padded with its neighbours", () => {
     const grid = monthGrid("2026-09-15");
@@ -171,11 +187,6 @@ describe("form: project and section", () => {
     from: "2026-09-04",
     project: "화학실험",
   };
-  const UP = "\x1b[A";
-  const toSection = (view: { stdin: { write: (s: string) => void } }) => {
-    // Up from the title wraps round: save, notes, subtasks, section.
-    for (let i = 0; i < 4; i++) view.stdin.write(UP);
-  };
   const form = (onSave: (d: Draft) => void, initial: Draft = draft) =>
     render(
       <Form
@@ -193,7 +204,7 @@ describe("form: project and section", () => {
     let saved: Draft | null = null;
     const view = form((d) => (saved = d));
     await tick();
-    toSection(view);
+    await focusOn(view, "Section");
     await tick();
     view.stdin.write(ENTER);
     await tick();
@@ -212,7 +223,7 @@ describe("form: project and section", () => {
     let saved: Draft | null = null;
     const view = form((d) => (saved = d), { ...draft, section: "예비" });
     await tick();
-    toSection(view);
+    await focusOn(view, "Section");
     await tick();
     view.stdin.write("x");
     await tick();
@@ -226,8 +237,7 @@ describe("form: project and section", () => {
     let saved: Draft | null = null;
     const view = form((d) => (saved = d), { ...draft, section: "예비" });
     await tick();
-    toSection(view);
-    view.stdin.write(UP); // project
+    await focusOn(view, "Project");
     await tick();
     view.stdin.write(ENTER);
     await tick();
@@ -245,11 +255,125 @@ describe("form: project and section", () => {
   test("a project without sections says so", async () => {
     const view = form(() => {}, { ...draft, project: "물리" });
     await tick();
-    toSection(view);
+    await focusOn(view, "Section");
     await tick();
     view.stdin.write(ENTER);
     await tick();
     expect(strip(view.lastFrame())).toContain("물리 has no sections");
     view.unmount();
   });
+});
+
+describe("form: labels", () => {
+  const draft: Draft = {
+    ...blankDraft("2026-09-01"),
+    title: "화학 실험 {n}주차",
+    weekdays: [4],
+    from: "2026-09-04",
+  };
+  const form = (onSave: (d: Draft) => void, labels: string[], initial: Draft = draft) =>
+    render(
+      <Form
+        heading="Edit"
+        initial={initial}
+        projects={[]}
+        sections={() => []}
+        labels={labels}
+        isNew={false}
+        onSave={onSave}
+        onCancel={() => {}}
+      />,
+    );
+
+  test("labels are picked from the account's own, several at once", async () => {
+    let saved: Draft | null = null;
+    const view = form((d) => (saved = d), ["lab", "school", "urgent"]);
+    await tick();
+    await focusOn(view, "Labels");
+    view.stdin.write(ENTER);
+    await tick();
+    view.stdin.write(" "); // lab
+    view.stdin.write(DOWN);
+    view.stdin.write(DOWN);
+    view.stdin.write(" "); // urgent
+    await tick();
+    view.stdin.write(ENTER);
+    await tick();
+    expect(strip(view.lastFrame())).toContain("@lab @urgent");
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.labels).toEqual(["lab", "urgent"]);
+    view.unmount();
+  });
+
+  test("a new label can be typed, with or without its @", async () => {
+    let saved: Draft | null = null;
+    const view = form((d) => (saved = d), []);
+    await tick();
+    await focusOn(view, "Labels");
+    view.stdin.write("a");
+    await tick();
+    view.stdin.write("@화학");
+    await tick();
+    view.stdin.write(ENTER);
+    await tick();
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.labels).toEqual(["화학"]);
+    view.unmount();
+  });
+
+  test("x clears the labels", async () => {
+    let saved: Draft | null = null;
+    const view = form((d) => (saved = d), ["lab"], { ...draft, labels: ["lab"] });
+    await tick();
+    await focusOn(view, "Labels");
+    view.stdin.write("x");
+    await tick();
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.labels).toEqual([]);
+    view.unmount();
+  });
+});
+
+test("the project picker leaves the Inbox, and closes on the current choice", async () => {
+  const base: Draft = {
+    ...blankDraft("2026-09-01"),
+    title: "t {n}",
+    weekdays: [4],
+    from: "2026-09-04",
+  };
+  const saves: Draft[] = [];
+  const view = render(
+    <Form
+      heading="Edit"
+      initial={base}
+      projects={["화학실험", "물리"]}
+      sections={() => []}
+      isNew={false}
+      onSave={(d) => saves.push(d)}
+      onCancel={() => {}}
+    />,
+  );
+  await tick();
+  await focusOn(view, "Project");
+  view.stdin.write(ENTER);
+  await tick();
+  view.stdin.write(DOWN); // Inbox -> 화학실험
+  await tick();
+  view.stdin.write(ENTER);
+  await tick();
+  view.stdin.write("\x13");
+  await tick();
+  expect(saves.at(-1)?.project).toBe("화학실험");
+  // Picking the first entry again still closes the picker.
+  view.stdin.write(ENTER);
+  await tick();
+  view.stdin.write(ENTER);
+  await tick();
+  view.stdin.write("\x13");
+  await tick();
+  expect(saves.at(-1)?.project).toBeNull();
+  view.unmount();
 });
