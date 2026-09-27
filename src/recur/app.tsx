@@ -7,6 +7,7 @@ import { Box, Text, useInput } from "ink";
 import { useCallback, useRef, useState } from "react";
 import { today } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
+import { t } from "../i18n/index.ts";
 import { AlternateScreen } from "../ui/alternate-screen.tsx";
 import type { Outcome } from "../ui/run.tsx";
 import { StickyTable } from "../ui/table.tsx";
@@ -76,17 +77,17 @@ function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
     const initialDraft: Draft = existing ? draftOf(existing) : blankDraft();
     return (
       <Form
-        heading={existing ? `Edit ${existing.template.content}` : "New recurring assignment"}
+        heading={existing ? t.form.editHeading(existing.template.content) : t.form.newHeading}
         initial={initialDraft}
         projects={projects}
         sections={sectionNames(data.workspace)}
         isNew={!existing}
         onCancel={back}
         onSave={(draft) =>
-          busy(existing ? "Saving" : "Creating", async () => {
+          busy(existing ? t.recur.saving : t.recur.creating, async () => {
             const templatesProjectId = await ensureTemplatesProject(api, data.workspace);
             const saved = await saveDraft(api, draft, { templatesProjectId, existing });
-            return `${symbol.ok} ${saved.created ? "created" : "saved"} ${draft.title}`;
+            return `${symbol.ok} ${saved.created ? t.recur.created(draft.title) : t.recur.saved(draft.title)}`;
           })
         }
       />
@@ -102,7 +103,7 @@ function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
         columns={occurrenceColumns}
         rows={rows}
         onQuit={() => setScreen({ kind: "list" })}
-        hint="q back"
+        hint={t.table.back}
       />
     );
   }
@@ -110,12 +111,12 @@ function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
   if (screen.kind === "confirm") {
     return (
       <Confirm
-        question={`Delete the template "${screen.row.name}"? Tasks it already made stay.`}
+        question={t.recur.confirmDelete(screen.row.name)}
         onAnswer={(yes) =>
           yes
-            ? busy("Deleting", async () => {
+            ? busy(t.recur.deleting, async () => {
                 await deleteTemplate(api, data.state, screen.row.id);
-                return `${symbol.ok} deleted ${screen.row.name}`;
+                return `${symbol.ok} ${t.recur.deleted(screen.row.name)}`;
               })
             : setScreen({ kind: "list" })
         }
@@ -127,12 +128,12 @@ function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
   return (
     <Box flexDirection="column">
       <StickyTable
-        title="Recurring assignments"
+        title={t.recur.title}
         columns={templateColumns}
         rows={rows}
         reserved={flash ? 1 : 0}
-        empty="No templates yet. Press n to make one."
-        hint="n new  e edit  d delete  enter preview"
+        empty={t.recur.emptyApp}
+        hint={t.recur.listHint}
         onQuit={close}
         onSelect={(row) => setScreen({ kind: "preview", id: row.id })}
         onKey={(input, row) => {
@@ -156,7 +157,7 @@ function Confirm({ question, onAnswer }: { question: string; onAnswer: (yes: boo
   });
   return (
     <Text>
-      {question} <Text color={color.muted}>(y/n)</Text>
+      {question} <Text color={color.muted}>{t.recur.yesNo}</Text>
     </Text>
   );
 }
@@ -190,6 +191,6 @@ export function appOutcome(initial: Data, start: Screen, standalone: boolean): O
 // Forms and pagers read keys; from a pipe there are none to read.
 export function requireTerminal(command: string): void {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error(`tdx recur ${command} needs a terminal`);
+    throw new Error(t.needsTerminal(`recur ${command}`));
   }
 }

@@ -3,9 +3,10 @@ import { argument } from "pastel";
 import { useEffect } from "react";
 import { z } from "zod";
 import { FEATURES } from "../features.ts";
+import { t } from "../i18n/index.ts";
 import { initScript, SHELLS } from "../init.ts";
 
-export const description = 'Print shell setup: eval "$(tdx init zsh)"';
+export const description = t.help.commands.init;
 
 export const args = z.tuple([
   z.enum(SHELLS).describe(argument({ name: "shell", description: SHELLS.join(", ") })),
@@ -20,7 +21,7 @@ export default function Init({ args: [shell] }: Props) {
     process.stdout.write(
       initScript(shell, [
         ...FEATURES.map((f) => ({ name: f.name, description: f.description })),
-        { name: "status", description: "Show the agent and each feature's last run" },
+        { name: "status", description: t.help.commands.status },
       ]),
     );
     exit();

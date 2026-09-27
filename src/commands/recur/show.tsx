@@ -2,6 +2,7 @@ import { Box, Text } from "ink";
 import { argument } from "pastel";
 import { z } from "zod";
 import { today } from "../../core/day.ts";
+import { t } from "../../i18n/index.ts";
 import { loadChecked } from "../../recur/feature.tsx";
 import { appearsOn, describeEvery, dueFor, occurrences, take, title } from "../../recur/rule.ts";
 import { outputOptions } from "../../ui/options.ts";
@@ -10,32 +11,42 @@ import { Fields } from "../../ui/parts.tsx";
 import { Run } from "../../ui/run.tsx";
 import { color, symbol, tint } from "../../ui/theme.ts";
 
-export const description = "One template, its rule and next deadlines";
+export const description = t.help.commands.recurShow;
 
 export const options = outputOptions;
 
 export const args = z.tuple([
-  z.string().describe(argument({ name: "id", description: "Template id" })),
+  z.string().describe(argument({ name: "id", description: t.help.templateId })),
 ]);
 
 type Props = { options: z.infer<typeof options>; args: z.infer<typeof args> };
 
-function relative(days: number): string {
-  if (days === 0) return "on the deadline";
-  const n = Math.abs(days);
-  return `${n} day${n === 1 ? "" : "s"} ${days < 0 ? "before" : "after"} the deadline`;
-}
+// Keys stay English in plain output, where a script may read them; on screen
+// they are labels in the reader's language.
+type Key =
+  | "template"
+  | "id"
+  | "every"
+  | "from"
+  | "skip"
+  | "appears"
+  | "due"
+  | "project"
+  | "section"
+  | "made"
+  | "notes"
+  | "subtasks";
 
 export default function Show({ options, args: [id] }: Props) {
   const output = outputOf(options);
   return (
     <Run
       output={output}
-      failure="recur show failed"
+      failure={t.failed("recur show")}
       task={async () => {
         const { checked, state } = await loadChecked([id]);
         const one = checked[0];
-        if (!one) throw new Error(`no template ${id}`);
+        if (!one) throw new Error(t.recur.noTemplate(id));
         const { template, rule, notes, errors } = one;
         const made = Object.keys(state.created[template.id] ?? {}).length;
         if (output.mode === "json") {
@@ -43,17 +54,20 @@ export default function Show({ options, args: [id] }: Props) {
           return null;
         }
 
-        const fields: [string, string][] = [
+        const fields: [Key, string][] = [
           ["template", template.content],
           ["id", template.id],
         ];
         if (rule) {
           fields.push(["every", describeEvery(rule.every)]);
-          fields.push(["from", rule.from + (rule.until ? `  until ${rule.until}` : "")]);
+          fields.push([
+            "from",
+            rule.from + (rule.until ? `  ${t.recur.show.until} ${rule.until}` : ""),
+          ]);
           if (rule.skip.length) fields.push(["skip", rule.skip.join(", ")]);
-          fields.push(["appears", `${rule.lead} days before the deadline`]);
-          if (rule.due !== null) fields.push(["due", relative(rule.due)]);
-          fields.push(["project", rule.project ?? "Inbox"]);
+          fields.push(["appears", t.recur.show.appearsValue(rule.lead)]);
+          if (rule.due !== null) fields.push(["due", t.recur.relative(rule.due)]);
+          fields.push(["project", rule.project ?? t.recur.inbox]);
           if (rule.section) fields.push(["section", rule.section]);
         }
         fields.push(["made", String(made)]);
@@ -63,20 +77,24 @@ export default function Show({ options, args: [id] }: Props) {
         }
         const next = rule ? take(occurrences(rule), 400).filter((o) => o.deadline >= today()) : [];
         const upcoming = next.slice(0, 5).map((o) => {
-          if (!rule || o.skipped) return `${o.deadline}  skipped`;
+          if (!rule || o.skipped)
+            return { skipped: true, text: `${o.deadline}  ${t.recur.show.skipped}` };
           const due = dueFor(rule, o.deadline);
-          return `${o.deadline}  ${title(template.content, o)}${due ? `  due ${due}` : ""}  appears ${appearsOn(rule, o.deadline)}`;
+          const parts = [o.deadline, title(template.content, o)];
+          if (due) parts.push(t.recur.show.dueOn(due));
+          parts.push(t.recur.show.appearsOn(appearsOn(rule, o.deadline)));
+          return { skipped: false, text: parts.join("  ") };
         });
 
         if (output.mode === "plain") {
           for (const [key, value] of fields) process.stdout.write(`${key}\t${value}\n`);
-          for (const line of upcoming) process.stdout.write(`next\t${line}\n`);
+          for (const line of upcoming) process.stdout.write(`next\t${line.text}\n`);
           for (const error of errors) process.stdout.write(`error\t${error}\n`);
           return null;
         }
         return (
           <Box flexDirection="column" gap={1}>
-            <Fields rows={fields} />
+            <Fields rows={fields.map(([key, value]) => [t.recur.show[key], value])} />
             {errors.length ? (
               <Box flexDirection="column">
                 {errors.map((e) => (
@@ -88,10 +106,10 @@ export default function Show({ options, args: [id] }: Props) {
             ) : null}
             {upcoming.length ? (
               <Box flexDirection="column">
-                <Text bold>next</Text>
+                <Text bold>{t.recur.show.next}</Text>
                 {upcoming.map((line) => (
-                  <Text key={line} {...tint(line.includes("skipped") ? color.muted : undefined)}>
-                    {line}
+                  <Text key={line.text} {...tint(line.skipped ? color.muted : undefined)}>
+                    {line.text}
                   </Text>
                 ))}
               </Box>

@@ -1,5 +1,6 @@
 import { option } from "pastel";
 import { z } from "zod";
+import { t } from "../i18n/index.ts";
 import { NUDGE_DAYS } from "./nudge.ts";
 
 export const days = z
@@ -7,4 +8,4 @@ export const days = z
   .int()
   .nonnegative()
   .default(NUDGE_DAYS)
-  .describe(option({ description: "How near is near, in days", valueDescription: "n" }));
+  .describe(option({ description: t.help.days, valueDescription: "n" }));

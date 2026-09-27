@@ -10,6 +10,10 @@ export interface LastRun {
   at: string; // ISO timestamp
   ok: boolean;
   summary: string;
+  // The numbers behind a successful summary, so it can be read back in
+  // whatever language is asked for later rather than the one it was run in --
+  // the launchd agent runs without a locale.
+  counts?: number[] | undefined;
 }
 
 const CONFIG = () => statePath("config");
@@ -30,6 +34,7 @@ export function lastRuns(): Record<string, LastRun> {
   return readState(RUNS(), RunsFile);
 }
 
-export function recordRun(name: string, ok: boolean, summary: string): void {
-  writeJson(RUNS(), { ...lastRuns(), [name]: { at: new Date().toISOString(), ok, summary } });
+export function recordRun(name: string, ok: boolean, summary: string, counts?: number[]): void {
+  const run: LastRun = { at: new Date().toISOString(), ok, summary, ...(counts ? { counts } : {}) };
+  writeJson(RUNS(), { ...lastRuns(), [name]: run });
 }

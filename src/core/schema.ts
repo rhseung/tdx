@@ -159,5 +159,10 @@ export const ConfigFile = z.object({ disabled: z.array(z.string()).default([]) }
 
 export const RunsFile = z.record(
   z.string(),
-  z.object({ at: z.string(), ok: z.boolean(), summary: z.string() }),
+  z.object({
+    at: z.string(),
+    ok: z.boolean(),
+    summary: z.string(),
+    counts: z.array(z.number()).optional(),
+  }),
 );

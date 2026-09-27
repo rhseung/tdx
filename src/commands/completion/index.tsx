@@ -1,1 +1,3 @@
-export const description = "Shell completion for tdx";
+import { t } from "../../i18n/index.ts";
+
+export const description = t.help.commands.completion;

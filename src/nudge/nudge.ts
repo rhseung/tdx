@@ -11,6 +11,7 @@ import type { Api } from "../core/http.ts";
 import { NudgeStateFile, TodoistTask } from "../core/schema.ts";
 import { readState, statePath, writeJson } from "../core/state.ts";
 import { allPages, client, type Task, toTask } from "../core/todoist.ts";
+import { t } from "../i18n/index.ts";
 import type { OpRow } from "../ui/parts.tsx";
 import type { Progress } from "../ui/progress.tsx";
 
@@ -51,9 +52,7 @@ export function plan(
     .sort((a, b) => ((a.deadline as Day) < (b.deadline as Day) ? -1 : 1))
     .map((t) => ({ id: t.id, content: t.content, deadline: t.deadline as Day, due: today }));
   if (nudges.length > cap) {
-    throw new NudgeError(
-      `${nudges.length} tasks would move into Today at once (cap ${cap}); run \`tdx nudge run --force\` if that is right`,
-    );
+    throw new NudgeError(t.nudge.tooMany(nudges.length, cap));
   }
   return nudges;
 }
@@ -111,29 +110,35 @@ export async function runNudge(
   const api = options.api ?? client();
   const state = loadState();
   const tasks = await progress.step(
-    "Read deadlines",
+    t.steps.readDeadlines,
     () => candidates(api),
-    (t) => `${t.length} without a due date`,
+    (found) => t.detail.withoutDue(found.length),
   );
   const nudges = await progress.step(
-    "Plan",
+    t.steps.plan,
     async () =>
       plan(tasks, state, today, options.days, options.force ? Number.POSITIVE_INFINITY : NUDGE_CAP),
     (n) =>
-      n.length
-        ? `${n.length} to pull into Today`
-        : `nothing due within ${options.days ?? NUDGE_DAYS} days`,
+      n.length ? t.detail.toToday(n.length) : t.detail.nothingNear(options.days ?? NUDGE_DAYS),
   );
   if (!options.dryRun) {
     await progress.step(
-      "Apply",
+      t.steps.apply,
       () =>
         applyNudges(api, state, nudges, today, (i) => progress.note(`${i + 1}/${nudges.length}`)),
-      () => `${nudges.length} applied`,
+      () => t.detail.applied(nudges.length),
     );
   }
-  const summary = `${nudges.length} pulled into Today${options.dryRun ? " (dry run)" : ""}`;
-  return { ops: nudges.map(describeNudge), summary, raw: nudges, tasks, state, today };
+  const summary = `${t.summary.nudge(nudges.length)}${options.dryRun ? t.dryRunSuffix : ""}`;
+  return {
+    ops: nudges.map(describeNudge),
+    summary,
+    counts: [nudges.length],
+    raw: nudges,
+    tasks,
+    state,
+    today,
+  };
 }
 
 // For the listing: every task with a deadline and no due date, and when it

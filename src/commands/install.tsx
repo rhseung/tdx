@@ -2,12 +2,13 @@ import { Box, Text } from "ink";
 import { option } from "pastel";
 import { z } from "zod";
 import * as agent from "../core/agent.ts";
+import { t } from "../i18n/index.ts";
 import { outputOf } from "../ui/output.tsx";
 import { Fields } from "../ui/parts.tsx";
 import { Run } from "../ui/run.tsx";
 import { color, symbol } from "../ui/theme.ts";
 
-export const description = "Install and load the launchd agent";
+export const description = t.help.commands.install;
 
 export const options = z.object({
   interval: z
@@ -15,7 +16,7 @@ export const options = z.object({
     .int()
     .positive()
     .default(agent.DEFAULT_INTERVAL)
-    .describe(option({ description: "Seconds between runs", valueDescription: "seconds" })),
+    .describe(option({ description: t.help.interval, valueDescription: "seconds" })),
 });
 
 type Props = { options: z.infer<typeof options> };
@@ -25,10 +26,10 @@ export default function Install({ options }: Props) {
   return (
     <Run
       output={output}
-      failure="install failed"
+      failure={t.failed("install")}
       task={async () => {
         const { path, legacy } = agent.install(options.interval);
-        const lines: [string, string][] = [
+        const lines: [keyof typeof t.agent.fields, string][] = [
           ["plist", path],
           ["every", `${options.interval}s`],
           ["log", agent.LOG],
@@ -39,8 +40,10 @@ export default function Install({ options }: Props) {
         }
         return (
           <Box flexDirection="column">
-            <Text color={color.ok}>{symbol.ok} agent loaded</Text>
-            <Fields rows={lines} />
+            <Text color={color.ok}>
+              {symbol.ok} {t.agent.loaded}
+            </Text>
+            <Fields rows={lines.map(([key, value]) => [t.agent.fields[key], value])} />
           </Box>
         );
       }}

@@ -14,24 +14,12 @@ import {
   parts,
   weekday,
 } from "../core/day.ts";
+import { t } from "../i18n/index.ts";
 import { isMouse } from "./mouse.ts";
 import { color, tint } from "./theme.ts";
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-const HEADER = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+// A weekday heading is two cells in either language (Mo, 월), the width of a
+// day number, so the grid lines up without padding.
 
 // Six weeks always, so the picker does not change height between months.
 export function monthGrid(month: Day): Day[][] {
@@ -104,10 +92,8 @@ export function DatePicker({
       borderColor={color.muted}
       paddingX={1}
     >
-      <Text bold>
-        {MONTHS[month - 1]} {year}
-      </Text>
-      <Text color={color.muted}>{HEADER.join(" ")}</Text>
+      <Text bold>{t.calendar.title(year, month)}</Text>
+      <Text color={color.muted}>{t.calendar.weekdays.join(" ")}</Text>
       {monthGrid(cursor).map((week) => (
         <Text key={week[0]}>
           {week.map((day, i) => {
@@ -130,9 +116,7 @@ export function DatePicker({
           })}
         </Text>
       ))}
-      <Text color={color.muted}>
-        {`←→↑↓ move · [ ] month · t today · ${multiple ? "space toggle · " : ""}enter done · esc cancel`}
-      </Text>
+      <Text color={color.muted}>{t.calendar.keys(multiple)}</Text>
     </Box>
   );
 }

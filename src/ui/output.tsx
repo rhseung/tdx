@@ -4,6 +4,7 @@
 
 import chalk from "chalk";
 import { Box, Text } from "ink";
+import { t } from "../i18n/index.ts";
 import { AlternateScreen } from "./alternate-screen.tsx";
 import type { Outcome } from "./run.tsx";
 import { type Column, StickyTable, Table } from "./table.tsx";
@@ -83,7 +84,7 @@ export function tableOutcome<R>(table: TableOutput<R>, output: Output): Outcome 
     for (const line of plainLines(table, output)) process.stdout.write(`${line}\n`);
     return null;
   }
-  if (!table.rows.length) return <Text color="gray">{table.empty ?? "nothing to show"}</Text>;
+  if (!table.rows.length) return <Text color="gray">{table.empty ?? t.nothingToShow}</Text>;
   const fits = table.rows.length + 2 + (table.title ? 1 : 0) <= (process.stdout.rows || 24);
   if (fits || !output.pager) {
     return (

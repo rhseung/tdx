@@ -3,11 +3,12 @@ import { argument } from "pastel";
 import { z } from "zod";
 import { setEnabled } from "../core/features.ts";
 import { FEATURES } from "../features.ts";
+import { t } from "../i18n/index.ts";
 import { outputOf } from "../ui/output.tsx";
 import { Run } from "../ui/run.tsx";
 import { color, symbol } from "../ui/theme.ts";
 
-export const description = "Include a feature in `tdx run`";
+export const description = t.help.commands.enable;
 
 export const args = z.tuple([
   z
@@ -22,13 +23,13 @@ export default function Enable({ args: [feature] }: Props) {
   return (
     <Run
       output={output}
-      failure="enable failed"
+      failure={t.failed("enable")}
       task={async () => {
         setEnabled(feature, true);
         if (output.mode !== "ink") process.stdout.write(`${feature} enabled\n`);
         return (
           <Text color={color.ok}>
-            {symbol.ok} {feature} enabled
+            {symbol.ok} {t.features.enabled(feature)}
           </Text>
         );
       }}

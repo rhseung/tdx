@@ -10,6 +10,7 @@ import {
   tasks as readTasks,
   type Task,
 } from "../core/todoist.ts";
+import { t } from "../i18n/index.ts";
 import type { Directory, OpenTask, RecurOp, RecurState, TemplateTask } from "./plan.ts";
 
 // Templates live in one project of their own. A task there has no due date,
@@ -129,7 +130,7 @@ export async function ensureTemplatesProject(api: Api, workspace: Workspace): Pr
   if (workspace.templatesProject) return workspace.templatesProject.id;
   const created = await api.post("/projects", {
     name: TEMPLATES_PROJECT,
-    description: "Recurring assignment templates for `tdx recur`. Each task here is a rule.",
+    description: t.recur.templatesProjectDescription,
   });
   return createdId(created);
 }

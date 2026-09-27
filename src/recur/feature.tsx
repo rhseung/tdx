@@ -3,6 +3,7 @@
 import { type Day, today as localToday } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
 import * as todoist from "../core/todoist.ts";
+import { t } from "../i18n/index.ts";
 import type { OpRow } from "../ui/parts.tsx";
 import type { Progress } from "../ui/progress.tsx";
 import { applyOps, directory, loadState, openTasks, readWorkspace } from "./io.ts";
@@ -45,9 +46,10 @@ export async function runRecur(
   const api = options.api ?? todoist.client();
   const state = loadState();
   const workspace = await progress.step(
-    "Read templates",
+    t.steps.readTemplates,
     () => readWorkspace(api),
-    (w) => (w.templatesProject ? `${w.templates.length} templates` : "no Templates project yet"),
+    (w) =>
+      w.templatesProject ? t.detail.templates(w.templates.length) : t.detail.noTemplatesProject,
   );
   const only = options.ids?.length ? new Set(options.ids) : null;
   const names = directory(workspace);
@@ -59,7 +61,7 @@ export async function runRecur(
   // somewhere else, so an ordinary run costs no extra call.
   const moving = relocated(checked, state, names.inboxId);
   const open = moving.length
-    ? await progress.step("Read tasks to move", () =>
+    ? await progress.step(t.steps.readMoving, () =>
         openTasks(
           api,
           moving.flatMap((c) => Object.values(state.created[c.template.id] ?? {})),
@@ -67,21 +69,21 @@ export async function runRecur(
       )
     : new Map();
   const ops = await progress.step(
-    "Plan",
+    t.steps.plan,
     async () => plan(checked, state, today, names.inboxId, open),
-    (ops) => (ops.length ? `${ops.length} changes` : "nothing due"),
+    (ops) => (ops.length ? t.detail.changes(ops.length) : t.detail.nothingDue),
   );
   if (!options.dryRun && ops.length) {
     await progress.step(
-      "Apply",
+      t.steps.apply,
       () => applyOps(api, state, ops, (_, i) => progress.note(`${i + 1}/${ops.length}`)),
-      () => `${ops.length} applied`,
+      () => t.detail.applied(ops.length),
     );
   }
   const made = ops.filter((op) => op.kind === "CreateInstance").length;
-  const summary = `${workspace.templates.length} templates, ${made} tasks${options.dryRun ? " (dry run)" : ""}`;
+  const summary = `${t.summary.recur(workspace.templates.length, made)}${options.dryRun ? t.dryRunSuffix : ""}`;
   const shown = ops.map(describeRecurOp).filter((op): op is OpRow => op !== null);
-  return { ops: shown, summary, raw: ops };
+  return { ops: shown, summary, counts: [workspace.templates.length, made], raw: ops };
 }
 
 // --- read-only views ----------------------------------------------------------

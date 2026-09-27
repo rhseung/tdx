@@ -3,8 +3,9 @@ import { useEffect } from "react";
 import { COMMANDS } from "../../completion/paths.ts";
 import { readTree } from "../../completion/tree.ts";
 import { zshScript } from "../../completion/zsh.ts";
+import { t } from "../../i18n/index.ts";
 
-export const description = "Print the zsh completion script";
+export const description = t.help.commands.completionZsh;
 
 // Plain text for a file or a pipe, never a screen.
 export default function Zsh() {

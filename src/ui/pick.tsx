@@ -4,6 +4,7 @@
 import { Select } from "@inkjs/ui";
 import { Box, Text, useApp, useInput } from "ink";
 import { useEffect } from "react";
+import { t } from "../i18n/index.ts";
 import { color } from "./theme.ts";
 
 export interface Choice {
@@ -38,7 +39,7 @@ function SelectPicker({ choices, prompt, onPick }: PickProps) {
         options={choices.map((c) => ({ label: c.label, value: c.id }))}
         onChange={onPick}
       />
-      <Text color={color.muted}>{"↑↓ move · enter pick · esc cancel"}</Text>
+      <Text color={color.muted}>{t.picker.keys}</Text>
     </Box>
   );
 }

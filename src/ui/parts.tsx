@@ -1,4 +1,5 @@
 import { Box, Text } from "ink";
+import { t } from "../i18n/index.ts";
 import { fit, width } from "./text.ts";
 import { color, symbol, tint } from "./theme.ts";
 
@@ -64,19 +65,22 @@ const MARK: Record<Change, string> = {
 export function OpList({ ops, limit = 40 }: { ops: OpRow[]; limit?: number }) {
   const sorted = [...ops].sort((a, b) => ORDER.indexOf(a.change) - ORDER.indexOf(b.change));
   const shown = sorted.slice(0, limit);
-  const verbWidth = Math.max(0, ...shown.map((op) => width(op.verb)));
+  // The verb stays a fixed word in the data (plain output prints it); only
+  // what is drawn here is in the reader's language.
+  const verb = (op: OpRow) => t.verbs[op.verb] ?? op.verb;
+  const verbWidth = Math.max(0, ...shown.map((op) => width(verb(op))));
   return (
     <Box flexDirection="column">
       {shown.map((op, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: ops repeat verbs and texts
         <Box key={i} gap={1}>
           <Text color={color[op.change]}>{MARK[op.change]}</Text>
-          <Text color={color[op.change]}>{fit(op.verb, verbWidth)}</Text>
+          <Text color={color[op.change]}>{fit(verb(op), verbWidth)}</Text>
           <Text wrap="truncate-end">{op.text}</Text>
         </Box>
       ))}
       {sorted.length > shown.length ? (
-        <Text color={color.muted}>… {sorted.length - shown.length} more</Text>
+        <Text color={color.muted}>{t.more(sorted.length - shown.length)}</Text>
       ) : null}
     </Box>
   );
@@ -85,13 +89,8 @@ export function OpList({ ops, limit = 40 }: { ops: OpRow[]; limit?: number }) {
 export function countChanges(ops: OpRow[]): [string, string | undefined][] {
   const counts = new Map<Change, number>();
   for (const op of ops) counts.set(op.change, (counts.get(op.change) ?? 0) + 1);
-  const words: Record<Change, string> = {
-    create: "created",
-    update: "updated",
-    move: "moved",
-    complete: "completed",
-    remove: "deleted",
-    meta: "other",
-  };
-  return ORDER.filter((c) => counts.get(c)).map((c) => [`${counts.get(c)} ${words[c]}`, color[c]]);
+  return ORDER.filter((c) => counts.get(c)).map((c) => [
+    t.count(counts.get(c) ?? 0, t.changes[c] ?? c),
+    color[c],
+  ]);
 }

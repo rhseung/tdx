@@ -5,6 +5,10 @@
 // sync depends on. And one directory shared by all tests would let a record
 // left by one test make the next pass without checking anything.
 
+// Tests assert on English text, and the language is fixed when i18n is first
+// imported -- so it is set here, before any test file loads a module.
+process.env["TDX_LANG"] = "en";
+
 import { beforeEach } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";

@@ -2,6 +2,7 @@
 
 import type { Api } from "../core/http.ts";
 import * as todoist from "../core/todoist.ts";
+import { t } from "../i18n/index.ts";
 import type { OpRow } from "../ui/parts.tsx";
 import type { Progress } from "../ui/progress.tsx";
 import { apply, snapshot } from "./apply.ts";
@@ -66,42 +67,48 @@ export async function syncGithub(progress: Progress, options: SyncOptions = {}) 
   // degraded response can never be mistaken for "all my work is done".
   const hub = options.github ?? gh.client();
   const { items, discarded } = await progress.step(
-    "Read GitHub",
+    t.steps.readGithub,
     async () => {
       const items = await gh.relations(hub, await gh.desired(hub));
       const goal = new Set(items.map((i) => i.ghId));
       const gone = Object.keys(state.tasks).filter((id) => !goal.has(id));
       return { items, discarded: await gh.discarded(hub, gone) };
     },
-    ({ items }) => `${items.length} items`,
+    ({ items }) => t.detail.items(items.length),
   );
 
   const api = options.todoist ?? todoist.client();
   const snap = await progress.step(
-    "Read Todoist",
+    t.steps.readTodoist,
     () => snapshot(api, state),
-    (s) => `${Object.keys(s.tasks).length} tasks tracked`,
+    (s) => t.detail.tracked(Object.keys(s.tasks).length),
   );
 
   const ops = await progress.step(
-    "Plan",
+    t.steps.plan,
     async () =>
       reconcile(items, snap, {
         cap: force ? Number.POSITIVE_INFINITY : COMPLETE_CAP,
         grace,
         discarded,
       }),
-    (ops) => (ops.length ? `${ops.length} changes` : "up to date"),
+    (ops) => (ops.length ? t.detail.changes(ops.length) : t.detail.upToDate),
   );
 
   if (!dryRun) {
     await progress.step(
-      "Apply",
+      t.steps.apply,
       () => apply(api, state, ops, save, (_, i) => progress.note(`${i + 1}/${ops.length}`)),
-      () => `${ops.length} applied`,
+      () => t.detail.applied(ops.length),
     );
   }
 
-  const summary = `${items.length} github items, ${ops.length} ops${dryRun ? " (dry run)" : ""}`;
-  return { ops: ops.map(describeOp), summary, items: items.length, raw: ops };
+  const summary = `${t.summary.gh(items.length, ops.length)}${dryRun ? t.dryRunSuffix : ""}`;
+  return {
+    ops: ops.map(describeOp),
+    summary,
+    counts: [items.length, ops.length],
+    items: items.length,
+    raw: ops,
+  };
 }

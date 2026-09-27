@@ -6,6 +6,7 @@
 
 import { addDays, type Day, today as localToday, weekday } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
+import { t } from "../i18n/index.ts";
 import { createdId } from "./io.ts";
 import type { Checked } from "./plan.ts";
 import { DEFAULT_LEAD, type Every, format, parse, type Rule } from "./rule.ts";
@@ -93,14 +94,14 @@ export function ruleOf(draft: Draft): Rule {
   };
 }
 
-export const TITLE_EMPTY = "the title is empty";
+export const TITLE_EMPTY = t.form.titleEmpty;
 
 // Run through the same parser the scheduler uses, so the form can only save
 // what the scheduler will accept.
 export function validate(draft: Draft): string[] {
   const errors: string[] = [];
   if (!draft.title.trim()) errors.push(TITLE_EMPTY);
-  if (draft.mode === "weekly" && !draft.weekdays.length) errors.push("pick at least one weekday");
+  if (draft.mode === "weekly" && !draft.weekdays.length) errors.push(t.form.noWeekday);
   const parsed = parse(format(ruleOf(draft)));
   return [...errors, ...parsed.errors];
 }

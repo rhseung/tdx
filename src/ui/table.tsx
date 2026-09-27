@@ -1,5 +1,6 @@
 import { Box, Text, useApp, useInput, useStdout, useWindowSize } from "ink";
 import { useEffect, useState } from "react";
+import { t } from "../i18n/index.ts";
 import { enableMouse, isMouse, wheelDelta } from "./mouse.ts";
 import { type ColumnSpec, fit, fitColumns, GAP } from "./text.ts";
 import { color, tint } from "./theme.ts";
@@ -142,7 +143,7 @@ export function StickyTable<R>({
   });
 
   const end = Math.min(rows.length, offset + height);
-  const position = rows.length ? `${offset + 1}-${end} of ${rows.length}` : "empty";
+  const position = rows.length ? t.table.position(offset + 1, end, rows.length) : t.table.empty;
   return (
     <Box flexDirection="column">
       {title ? <Text bold>{title}</Text> : null}
@@ -159,8 +160,9 @@ export function StickyTable<R>({
         {offset > 0 ? "↑ " : "  "}
         {end < rows.length ? "↓ " : "  "}
         {position}
-        {"   j/k ↑↓ wheel  PgUp/PgDn  g/G  "}
-        {hint ? `${hint}  ` : ""}q quit
+        {`   ${t.table.keys}  `}
+        {hint ? `${hint}  ` : ""}
+        {t.table.quit}
       </Text>
     </Box>
   );

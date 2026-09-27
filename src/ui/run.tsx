@@ -8,6 +8,7 @@
 
 import { Box, Text, useApp } from "ink";
 import { type ReactNode, useEffect, useState } from "react";
+import { t } from "../i18n/index.ts";
 import type { Output } from "./output.tsx";
 import { countChanges, ErrorBox, OpList, type OpRow, Summary } from "./parts.tsx";
 import { Progress, ProgressView } from "./progress.tsx";
@@ -68,7 +69,7 @@ export function Result({
   if (!ops.length) {
     return (
       <Text color={color.ok}>
-        {symbol.ok} {summary ?? "nothing to change"}
+        {symbol.ok} {summary ?? t.nothingToChange}
       </Text>
     );
   }
@@ -77,7 +78,7 @@ export function Result({
       <OpList ops={ops} />
       <Summary
         parts={[
-          ...(dryRun ? [["dry run", color.warn] as [string, string]] : []),
+          ...(dryRun ? [[t.dryRun, color.warn] as [string, string]] : []),
           ...countChanges(ops),
         ]}
       />

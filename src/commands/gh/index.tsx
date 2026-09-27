@@ -1,1 +1,3 @@
-export const description = "GitHub issues and PRs, mirrored into Todoist";
+import { t } from "../../i18n/index.ts";
+
+export const description = t.help.commands.gh;

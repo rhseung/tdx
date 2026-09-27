@@ -4,6 +4,7 @@ import type { z } from "zod";
 import * as agent from "../core/agent.ts";
 import { disabled, type LastRun, lastRuns } from "../core/features.ts";
 import { FEATURES } from "../features.ts";
+import { t } from "../i18n/index.ts";
 import { outputOptions } from "../ui/options.ts";
 import { outputOf, printJson, tableOutcome } from "../ui/output.tsx";
 import { Fields } from "../ui/parts.tsx";
@@ -12,7 +13,7 @@ import type { Column } from "../ui/table.tsx";
 import { color } from "../ui/theme.ts";
 import { ago } from "../ui/time.ts";
 
-export const description = "Show the agent and each feature's last run";
+export const description = t.help.commands.status;
 
 export const options = outputOptions;
 
@@ -26,29 +27,44 @@ interface Row {
 }
 
 const columns: Column<Row>[] = [
-  { header: "feature", value: (r) => r.name, min: 4 },
+  { header: t.features.columns.feature, value: (r) => r.name, min: 4 },
   {
-    header: "on",
-    value: (r) => (r.enabled ? "on" : "off"),
+    header: t.features.columns.on,
+    value: (r) => (r.enabled ? t.features.on : t.features.off),
     color: (r) => (r.enabled ? color.ok : color.muted),
   },
   {
-    header: "last run",
-    value: (r) => (r.last ? ago(r.last.at) : "never"),
+    header: t.features.columns.lastRun,
+    value: (r) => (r.last ? ago(r.last.at) : t.features.never),
     color: () => color.muted,
   },
   {
-    header: "result",
-    value: (r) => (r.last ? (r.last.ok ? "ok" : "failed") : ""),
+    header: t.features.columns.result,
+    value: (r) => (r.last ? (r.last.ok ? t.features.ok : t.features.failedRun) : ""),
     color: (r) => (r.last?.ok ? color.ok : color.error),
   },
-  { header: "summary", value: (r) => r.last?.summary ?? r.description, shrink: 4 },
+  {
+    header: t.features.columns.summary,
+    value: (r) => (r.last ? summaryOf(r.name, r.last) : r.description),
+    shrink: 4,
+  },
 ];
 
+// A failure's summary is its error message and stands as written; a success
+// is rebuilt from its counts in the reader's language.
+function summaryOf(name: string, last: LastRun): string {
+  const [a = 0, b = 0] = last.counts ?? [];
+  if (!last.ok || !last.counts) return last.summary;
+  if (name === "gh") return t.summary.gh(a, b);
+  if (name === "recur") return t.summary.recur(a, b);
+  if (name === "nudge") return t.summary.nudge(a);
+  return last.summary;
+}
+
 function agentLine(status: agent.AgentStatus): [string, string] {
-  if (!status.installed) return ["not installed", color.warn];
-  if (!status.loaded) return [`installed but not loaded (every ${status.interval}s)`, color.warn];
-  return [`running every ${status.interval}s, last exit ${status.lastExit ?? "?"}`, color.ok];
+  if (!status.installed) return [t.agent.notInstalled, color.warn];
+  if (!status.loaded) return [t.agent.notLoaded(status.interval), color.warn];
+  return [t.agent.running(status.interval, status.lastExit ?? "?"), color.ok];
 }
 
 export default function Status({ options }: Props) {
@@ -56,7 +72,7 @@ export default function Status({ options }: Props) {
   return (
     <Run
       output={output}
-      failure="status failed"
+      failure={t.failed("status")}
       task={async () => {
         const status = agent.describe();
         const runs = lastRuns();
@@ -76,18 +92,18 @@ export default function Status({ options }: Props) {
         const [text, shade] = agentLine(status);
         const fields: [string, ReactNode][] = [
           [
-            "agent",
+            t.agent.fields.agent,
             <Text key="agent" color={shade}>
               {text}
             </Text>,
           ],
-          ["log", agent.LOG],
+          [t.agent.fields.log, agent.LOG],
         ];
         if (status.legacyLoaded) {
           fields.push([
-            "legacy",
+            t.agent.fields.legacy,
             <Text key="legacy" color={color.error}>
-              {agent.LEGACY_LABEL} still loaded
+              {t.agent.legacyLoaded(agent.LEGACY_LABEL)}
             </Text>,
           ]);
         }

@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 import Pastel from "pastel";
 import pkg from "../package.json" with { type: "json" };
+import "./i18n/commander.ts";
+import { t } from "./i18n/index.ts";
 
 // Outside a terminal stdout is data -- fzf input, a pipe, the launchd log --
 // and two things Ink does there would corrupt it or crash on it:
@@ -36,5 +38,5 @@ await new Pastel({
   importMeta: import.meta,
   name: "tdx",
   version: pkg.version,
-  description: "A personal Todoist toolkit that fills the gaps td leaves.",
+  description: t.help.tool,
 }).run();

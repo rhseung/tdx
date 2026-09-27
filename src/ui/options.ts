@@ -4,28 +4,29 @@
 
 import { option } from "pastel";
 import { z } from "zod";
+import { t } from "../i18n/index.ts";
 
 export const outputOptions = z.object({
   json: z
     .boolean()
     .default(false)
-    .describe(option({ description: "Print JSON instead of a table" })),
+    .describe(option({ description: t.help.json })),
   color: z
     .enum(["auto", "always", "never"])
     .default("auto")
-    .describe(option({ description: "Colour in plain output", valueDescription: "when" })),
+    .describe(option({ description: t.help.color, valueDescription: "when" })),
   header: z
     .boolean()
     .default(false)
-    .describe(option({ description: "Put a header line on plain output (fzf --header-lines=1)" })),
+    .describe(option({ description: t.help.header })),
   // A true default is how Pastel spells a `--no-pager` flag.
   pager: z
     .boolean()
     .default(true)
-    .describe(option({ description: "Print long tables instead of opening a scrolling view" })),
+    .describe(option({ description: t.help.pager })),
 });
 
 export const dryRun = z
   .boolean()
   .default(false)
-  .describe(option({ description: "Show what would change, change nothing", alias: "n" }));
+  .describe(option({ description: t.help.dryRun, alias: "n" }));

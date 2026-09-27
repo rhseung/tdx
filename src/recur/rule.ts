@@ -7,6 +7,7 @@
 // rewrite the other.
 
 import { addDays, type Day, daysInMonth, isDay, makeDay, parts, weekday } from "../core/day.ts";
+import { t } from "../i18n/index.ts";
 
 export type Every =
   | { kind: "weekly"; interval: number; weekdays: number[] } // 0 = Monday
@@ -41,7 +42,7 @@ const WEEKDAYS: Record<string, number> = {
   sat: 5, saturday: 5, 토: 5,
   sun: 6, sunday: 6, 일: 6,
 };
-export const WEEKDAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const WEEKDAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 const KEYS = ["every", "from", "until", "skip", "lead", "due", "project", "section"] as const;
 
@@ -243,14 +244,15 @@ export function dueFor(rule: Rule, deadline: Day): Day | null {
   return rule.due === null ? null : addDays(deadline, rule.due);
 }
 
+// For reading, in the reader's language. What is written back into a
+// template is format(), which stays in the rule's own English keywords.
 export function describeEvery(every: Every): string {
+  const r = t.recur.every;
   if (every.kind === "monthly") {
-    return every.interval > 1
-      ? `every ${every.interval} months on the ${every.day}`
-      : `monthly on the ${every.day}`;
+    return every.interval > 1 ? r.months(every.interval, every.day) : r.monthly(every.day);
   }
-  const days = every.weekdays.map((d) => WEEKDAY_NAMES[d]).join(", ");
-  return every.interval > 1 ? `every ${every.interval} weeks on ${days}` : `every ${days}`;
+  const days = every.weekdays.map((d) => t.recur.weekdays[d]).join(", ");
+  return every.interval > 1 ? r.weeks(every.interval, days) : r.weekly(days);
 }
 
 // "{n}" is the occurrence number, "{date}" the deadline as month/day.

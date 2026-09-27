@@ -74,6 +74,20 @@ tdx install / uninstall     # launchd 등록과 해제 (--interval 로 주기 �
 
 로그는 `~/Library/Logs/tdx.log`에 기록됩니다.
 
+## 언어
+
+화면 문구와 도움말은 영어와 한국어를 지원합니다. 시스템 로케일을 따르고(`LC_ALL`,
+`LC_MESSAGES`, `LANG` 순), `TDX_LANG`으로 덮어쓸 수 있습니다.
+
+```bash
+export TDX_LANG=ko   # 로케일이 en_US 여도 한국어로
+```
+
+Todoist 용어는 Todoist 한국어 화면을 따릅니다. due date는 날짜, deadline은 마감일, Inbox는
+관리함입니다. 파이프와 JSON으로 나가는 값(탭으로 나눈 필드, 변경 종류, JSON 키)과 launchd
+로그는 스크립트가 읽는 형식이라 언어와 상관없이 그대로입니다. 템플릿 규칙의 키(`every:`,
+`from:` …)와 그 오류 메시지도 영어로 둡니다.
+
 ## 출력
 
 모든 명령은 세 가지 방식 중 하나로 출력합니다.

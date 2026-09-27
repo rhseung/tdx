@@ -9,20 +9,13 @@ import { Select, TextInput } from "@inkjs/ui";
 import { Box, Text, useInput } from "ink";
 import { type ReactNode, useMemo, useState } from "react";
 import { type Day, today as localToday } from "../core/day.ts";
+import { t } from "../i18n/index.ts";
 import { DatePicker } from "../ui/date-picker.tsx";
 import { isMouse } from "../ui/mouse.ts";
-import { fit } from "../ui/text.ts";
+import { fit, width } from "../ui/text.ts";
 import { color, symbol, tint } from "../ui/theme.ts";
 import { type Draft, ruleOf, TITLE_EMPTY, validate } from "./draft.ts";
-import {
-  appearsOn,
-  dueFor,
-  type Occurrence,
-  occurrences,
-  take,
-  title,
-  WEEKDAY_NAMES,
-} from "./rule.ts";
+import { appearsOn, dueFor, type Occurrence, occurrences, take, title } from "./rule.ts";
 
 const FIELDS = [
   "title",
@@ -42,39 +35,8 @@ const FIELDS = [
 ] as const;
 type Field = (typeof FIELDS)[number];
 
-const LABELS: Record<Field, string> = {
-  title: "Title",
-  repeats: "Repeats",
-  interval: "Every",
-  on: "On",
-  from: "First",
-  until: "Until",
-  skip: "Skip",
-  lead: "Appears",
-  due: "Due",
-  project: "Project",
-  section: "Section",
-  subtasks: "Subtasks",
-  notes: "Notes",
-  save: "",
-};
-
-const HINTS: Partial<Record<Field, string>> = {
-  title: "enter to edit · {n} is the number, {date} the deadline",
-  repeats: "←→ switch",
-  interval: "←→ change",
-  on: "←→ move · space or 1-7 toggle",
-  from: "enter to pick",
-  until: "enter to pick · x clear",
-  skip: "enter to pick several",
-  lead: "←→ change",
-  due: "←→ change · x none",
-  project: "enter to pick",
-  section: "enter to pick · x none",
-  subtasks: "enter to add · x remove the last",
-  notes: "enter to edit · copied into every task",
-  save: "enter or ctrl+s to save · esc to cancel",
-};
+const LABELS = t.form.labels;
+const HINTS = t.form.hints;
 
 // @inkjs/ui's Select takes an empty value for "nothing chosen": focus will not
 // leave an option whose value is "", and choosing it never fires onChange. So
@@ -99,11 +61,6 @@ type Editing =
   | { kind: "section" };
 
 const short = (day: Day) => `${Number(day.slice(5, 7))}/${Number(day.slice(8))}`;
-
-function days(n: number, word: string): string {
-  if (n === 0) return `on the ${word}`;
-  return `${Math.abs(n)} day${Math.abs(n) === 1 ? "" : "s"} ${n < 0 ? "before" : "after"} the ${word}`;
-}
 
 export interface FormProps {
   heading: string;
@@ -231,17 +188,17 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
       case "repeats":
         return (
           <Text>
-            <Text inverse={draft.mode === "weekly"}> weekly </Text>{" "}
-            <Text inverse={draft.mode === "monthly"}> monthly </Text>
+            <Text inverse={draft.mode === "weekly"}> {t.form.weekly} </Text>{" "}
+            <Text inverse={draft.mode === "monthly"}> {t.form.monthly} </Text>
           </Text>
         );
       case "interval":
-        return `${draft.interval} ${draft.mode === "weekly" ? "week" : "month"}${draft.interval > 1 ? "s" : ""}`;
+        return t.form.interval(draft.interval, draft.mode === "weekly");
       case "on":
-        if (draft.mode === "monthly") return `day ${draft.monthDay}`;
+        if (draft.mode === "monthly") return t.form.monthDay(draft.monthDay);
         return (
           <Text>
-            {WEEKDAY_NAMES.map((name, i) => (
+            {t.recur.weekdays.map((name, i) => (
               <Text key={name}>
                 <Text
                   inverse={focus === "on" && i === dayCursor}
@@ -257,37 +214,37 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
       case "from":
         return draft.from;
       case "until":
-        return draft.until ?? <Text color={color.muted}>no end</Text>;
+        return draft.until ?? <Text color={color.muted}>{t.form.noEnd}</Text>;
       case "skip":
         return draft.skip.length ? (
           draft.skip.map(short).join(", ")
         ) : (
-          <Text color={color.muted}>none</Text>
+          <Text color={color.muted}>{t.form.none}</Text>
         );
       case "lead":
-        return `${draft.lead} day${draft.lead === 1 ? "" : "s"} before the deadline`;
+        return t.form.lead(draft.lead);
       case "due":
         return draft.due === null ? (
-          <Text color={color.muted}>no due date</Text>
+          <Text color={color.muted}>{t.form.noDue}</Text>
         ) : (
-          days(draft.due, "deadline")
+          t.recur.relative(draft.due)
         );
       case "project":
-        return draft.project ?? "Inbox";
+        return draft.project ?? t.recur.inbox;
       case "section":
-        return draft.section ?? <Text color={color.muted}>none</Text>;
+        return draft.section ?? <Text color={color.muted}>{t.form.none}</Text>;
       case "subtasks":
         return draft.subtasks.length ? (
           draft.subtasks.join(", ")
         ) : (
-          <Text color={color.muted}>none</Text>
+          <Text color={color.muted}>{t.form.none}</Text>
         );
       case "notes":
-        return draft.notes || <Text color={color.muted}>none</Text>;
+        return draft.notes || <Text color={color.muted}>{t.form.none}</Text>;
       case "save":
         return (
           <Text color={errors.length ? color.muted : color.ok} bold>
-            [ {isNew ? "Create" : "Save"} ]
+            [ {isNew ? t.form.create : t.form.save} ]
           </Text>
         );
     }
@@ -301,10 +258,12 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
       return (
         <EscapeAware onEscape={() => setEditing(null)}>
           <Box gap={1}>
-            <Text color={color.accent}>{field === "subtasks" ? "new subtask" : LABELS[field]}</Text>
+            <Text color={color.accent}>
+              {field === "subtasks" ? t.form.newSubtask : LABELS[field]}
+            </Text>
             <TextInput
               defaultValue={initialText}
-              placeholder={field === "title" ? "화학 실험 {n}주차" : ""}
+              placeholder={field === "title" ? t.form.titlePlaceholder : ""}
               onSubmit={(text) => {
                 if (field === "subtasks") {
                   if (text.trim()) set({ subtasks: [...draft.subtasks, text.trim()] });
@@ -341,7 +300,7 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
       if (!names.length) {
         return (
           <EscapeAware onEscape={() => setEditing(null)}>
-            <Text color={color.muted}>{draft.project ?? "Inbox"} has no sections · esc back</Text>
+            <Text color={color.muted}>{t.form.noSections(draft.project ?? t.recur.inbox)}</Text>
           </EscapeAware>
         );
       }
@@ -349,7 +308,7 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
         <EscapeAware onEscape={() => setEditing(null)}>
           <Select
             visibleOptionCount={8}
-            options={choices(["none", NONE], names, draft.section ?? NONE)}
+            options={choices([t.form.none, NONE], names, draft.section ?? NONE)}
             onChange={(picked) => {
               set({ section: picked === NONE ? null : picked });
               setEditing(null);
@@ -362,7 +321,7 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
       <EscapeAware onEscape={() => setEditing(null)}>
         <Select
           visibleOptionCount={8}
-          options={choices(["Inbox", NONE], projects, draft.project ?? NONE)}
+          options={choices([t.recur.inbox, NONE], projects, draft.project ?? NONE)}
           onChange={(picked) => {
             // A section belongs to one project; a new project starts with none.
             const project = picked === NONE ? null : picked;
@@ -374,7 +333,8 @@ export function Form({ heading, initial, projects, sections, isNew, onSave, onCa
     );
   };
 
-  const labelWidth = 9;
+  // The widest label in this language, plus a cell to breathe.
+  const labelWidth = Math.max(...Object.values(LABELS).map(width)) + 1;
   return (
     <Box flexDirection="column">
       <Text bold>{heading}</Text>
@@ -430,24 +390,22 @@ function Preview({
   const real = upcoming.filter((o) => !o.skipped);
   const shown = upcoming.slice(0, 6);
   const last = real.at(-1);
-  const total = draft.until
-    ? `${real.length} deadlines left, the last on ${last?.deadline ?? "-"}`
-    : "no end date";
+  const total = draft.until ? t.form.left(real.length, last?.deadline ?? "-") : t.form.noEndDate;
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text bold>
-        Upcoming <Text color={color.muted}>· {total}</Text>
+        {t.form.upcoming} <Text color={color.muted}>· {total}</Text>
       </Text>
       {shown.map((o) => {
         const due = dueFor(rule, o.deadline);
         const line = o.skipped
-          ? `${fit("-", 3, "right")}  ${o.deadline}  skipped`
+          ? `${fit("-", 3, "right")}  ${o.deadline}  ${t.form.skipped}`
           : [
               fit(String(o.n), 3, "right"),
               o.deadline,
               fit(title(draft.title || "…", o), 28),
-              fit(`appears ${short(appearsOn(rule, o.deadline))}`, 13),
-              due ? `due ${short(due)}` : "",
+              fit(t.form.appears(short(appearsOn(rule, o.deadline))), 13),
+              due ? t.form.due(short(due)) : "",
             ].join("  ");
         return (
           <Text key={o.deadline} {...tint(o.skipped ? color.muted : undefined)} wrap="truncate-end">
