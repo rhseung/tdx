@@ -20,6 +20,14 @@ bun link              # tdx 를 PATH 에 올림
 tdx install           # launchd 등록, 120초마다 실행
 ```
 
+`~/.zshrc`에 한 줄을 넣으면 `td recur`, `td gh`처럼 `td`의 하위 명령으로 부를 수 있습니다.
+`td`에는 플러그인 기능이 없어서, 앞에 셸 함수를 하나 두고 tdx의 명령만 tdx로 넘깁니다.
+나머지는 원래 `td`가 그대로 받습니다.
+
+```bash
+eval "$(tdx init zsh)"
+```
+
 `gh`와 `td`에 로그인되어 있으면 따로 설정할 항목이 없습니다. 토큰을 따로 두고 싶으면
 fnox에 넣습니다. `fnox.toml`에 `TODOIST_API_TOKEN`과 `GITHUB_TOKEN`이 선언되어 있고,
 `fnox exec -- tdx ...`로 실행하면 그 값을 먼저 씁니다. launchd 에이전트는 fnox를 거치지
@@ -36,7 +44,9 @@ tdx run --dry-run --only gh # 계획만 보기, 기능 골라 돌리기
 tdx gh sync --dry-run       # 실행 계획만 출력하고 아무것도 쓰지 않음
 tdx gh sync --force         # 대량 완료 가드 해제
 tdx gh sync --grace 14      # 빈 section 유예 기간 (기본 7일)
-tdx recur                   # 반복 과제 템플릿 목록
+tdx recur                   # 반복 과제 템플릿 목록. 터미널에서는 대화형 화면
+tdx recur new               # 폼으로 템플릿 만들기
+tdx recur edit [id]         # 폼으로 고치기 (id 없으면 골라서)
 tdx recur preview [id]      # 회차별 deadline, due, 생성일, 상태
 tdx recur show <id>         # 템플릿 하나의 규칙과 다음 회차
 tdx recur run --dry-run     # 지금 만들 회차 확인
@@ -98,6 +108,22 @@ project: 화학실험      # 만들 곳. 없으면 Inbox
 ---
 실험복 지참
 ```
+
+템플릿은 `tdx recur new`의 폼으로 만드는 편이 쉽습니다. 모든 항목이 한 화면에 있고,
+값을 바꿀 때마다 아래에 앞으로의 마감일이 다시 그려집니다. 날짜는 달력에서 고르고,
+건너뛸 날을 고를 때는 규칙이 만드는 마감일이 달력에 표시됩니다. 폼은 설명을 직접 쓰지
+않고 스케줄러와 같은 파서를 거친 규칙만 저장하므로, 폼으로 만든 템플릿과 휴대폰에서 고친
+템플릿이 같은 모양이 됩니다.
+
+| 화면 | 키 |
+| --- | --- |
+| 목록 (`tdx recur`) | `n` 새로 만들기, `e` 고치기, `d` 삭제, `enter` 회차 미리보기, `q` 나가기 |
+| 폼 | `↑`/`↓` 항목 이동, `←`/`→` 값 바꾸기, `enter` 편집, `x` 비우기, `ctrl+s` 저장, `esc` 취소 |
+| 요일 | `←`/`→` 이동, `space` 또는 `1`-`7` 켜고 끄기 |
+| 달력 | 방향키 이동, `[` `]` 달 넘기기, `t` 오늘, `space` 여러 날 고르기, `enter` 확정 |
+
+`TDX_PICKER=fzf`를 두면 id 없이 부른 명령이 fzf로 고릅니다. `tdx init zsh`는 fzf가
+있으면 이 값을 켜고, 템플릿을 골라 바로 폼을 여는 `tdx-edit` 함수도 만듭니다.
 
 회차 번호는 건너뛴 주를 빼고 셉니다. 휴강한 주가 번호를 차지하지 않으므로 "3주차"가 세
 번째 실험과 맞아떨어집니다.

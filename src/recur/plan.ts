@@ -14,7 +14,7 @@ export interface TemplateTask {
   description: string;
   priority: number;
   labels: string[];
-  children: { content: string; description: string; priority: number; labels: string[] }[];
+  children: (NewTask & { id: string })[];
 }
 
 export interface RecurState {
@@ -119,8 +119,10 @@ export function plan(checked: Checked[], state: RecurState, today: Day): RecurOp
           due: dueFor(rule, occurrence.deadline),
         },
         subtasks: template.children.map((child) => ({
-          ...child,
           content: title(child.content, occurrence),
+          description: child.description,
+          priority: child.priority,
+          labels: child.labels,
         })),
       });
     }

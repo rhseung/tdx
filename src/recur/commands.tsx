@@ -3,19 +3,21 @@ import { Box, Text } from "ink";
 import { today } from "../core/day.ts";
 import { recordRun } from "../core/features.ts";
 import { fail, printOps, Result, readIds, withOutput } from "../ui/command.tsx";
-import { type OutputFlags, outputOf, printJson, printStatic, showTable } from "../ui/output.tsx";
-import { Fields } from "../ui/parts.tsx";
-import { withProgress } from "../ui/progress.tsx";
-import type { Column } from "../ui/Table.tsx";
-import { color, symbol } from "../ui/theme.ts";
 import {
-  loadChecked,
-  type OccurrenceRow,
-  occurrenceRows,
-  runRecur,
-  type TemplateRow,
-  templateRows,
-} from "./feature.tsx";
+  type OutputFlags,
+  outputOf,
+  printJson,
+  printStatic,
+  runScreen,
+  showTable,
+} from "../ui/output.tsx";
+import { Fields } from "../ui/parts.tsx";
+import { pick } from "../ui/pick.tsx";
+import { withProgress } from "../ui/progress.tsx";
+import { color, symbol } from "../ui/theme.ts";
+import { RecurApp } from "./App.tsx";
+import { occurrenceColumns, templateColumns } from "./columns.ts";
+import { loadChecked, occurrenceRows, runRecur, templateRows } from "./feature.tsx";
 import { deleteTemplate, TEMPLATES_PROJECT } from "./io.ts";
 import { appearsOn, describeEvery, dueFor, occurrences, take, title } from "./rule.ts";
 
@@ -25,37 +27,32 @@ function relative(days: number): string {
   return `${n} day${n === 1 ? "" : "s"} ${days < 0 ? "before" : "after"} the deadline`;
 }
 
-const statusColor: Record<string, string> = {
-  created: color.ok,
-  planned: color.accent,
-  skipped: color.muted,
-  past: color.muted,
-};
+async function openApp(start: Parameters<typeof RecurApp>[0]["start"], standalone: boolean) {
+  const initial = await loadChecked();
+  const messages: string[] = [];
+  await runScreen(
+    <RecurApp
+      initial={initial}
+      start={start}
+      standalone={standalone}
+      onMessage={(m) => messages.push(m)}
+    />,
+  );
+  // The app ran in the alternate screen, so what it did is repeated here,
+  // where it stays in the scrollback.
+  for (const message of messages) process.stdout.write(`${message}\n`);
+}
 
-export const templateColumns: Column<TemplateRow>[] = [
-  { header: "template", value: (r) => r.name, shrink: 3 },
-  { header: "every", value: (r) => r.every, color: () => color.muted },
-  { header: "next", value: (r) => r.next ?? "", min: 10 },
-  { header: "made", value: (r) => String(r.made), align: "right" },
-  {
-    header: "status",
-    value: (r) => r.status,
-    color: (r) => (r.ok ? (r.status === "ok" ? color.ok : color.muted) : color.error),
-    shrink: 4,
-  },
-];
-
-export const occurrenceColumns: Column<OccurrenceRow>[] = [
-  { header: "n", value: (r) => (r.n === null ? "-" : String(r.n)), align: "right" },
-  { header: "title", value: (r) => r.title, shrink: 4 },
-  { header: "deadline", value: (r) => r.deadline, min: 10 },
-  { header: "due", value: (r) => r.due ?? "", color: () => color.muted },
-  { header: "appears", value: (r) => r.appears, color: () => color.muted },
-  { header: "status", value: (r) => r.status, color: (r) => statusColor[r.status] },
-];
+function interactive(command: string): void {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    process.stderr.write(`tdx recur ${command} needs a terminal\n`);
+    process.exit(1);
+  }
+}
 
 async function list(flags: OutputFlags) {
   const output = outputOf(flags);
+  if (output.mode === "ink" && output.pager) return openApp({ kind: "list" }, false);
   const { checked, state, workspace } = await loadChecked();
   const rows = templateRows(checked, state, today());
   await showTable(
@@ -78,6 +75,32 @@ export function registerRecur(program: Command): Command {
     .description("assignments that come out on a schedule, with a deadline each time");
 
   withOutput(recur.command("list", { isDefault: true }).description("list templates")).action(list);
+
+  recur
+    .command("new")
+    .description("make a template in a form, with its deadlines previewed as you type")
+    .action(async () => {
+      interactive("new");
+      await openApp({ kind: "form", id: null }, true);
+    });
+
+  recur
+    .command("edit [id]")
+    .description("edit a template in the form (no id: pick one)")
+    .action(async (id?: string) => {
+      interactive("edit");
+      let chosen = id;
+      if (!chosen) {
+        const { workspace } = await loadChecked();
+        chosen =
+          (await pick(
+            workspace.templates.map((t) => ({ id: t.id, label: t.content })),
+            "Edit which template?",
+            "tdx recur show {1}",
+          )) ?? undefined;
+      }
+      if (chosen) await openApp({ kind: "form", id: chosen }, true);
+    });
 
   withOutput(
     recur
@@ -121,7 +144,7 @@ export function registerRecur(program: Command): Command {
       fields.push(["from", rule.from + (rule.until ? `  until ${rule.until}` : "")]);
       if (rule.skip.length) fields.push(["skip", rule.skip.join(", ")]);
       fields.push(["appears", `${rule.lead} days before the deadline`]);
-      if (rule.due !== null) fields.push(["due", `${rule.due} days from the deadline`]);
+      if (rule.due !== null) fields.push(["due", relative(rule.due)]);
       fields.push(["project", rule.project ?? "Inbox"]);
     }
     fields.push(["made", String(made)]);

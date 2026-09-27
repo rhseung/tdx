@@ -156,7 +156,9 @@ describe("plan", () => {
     description,
     priority: 3,
     labels: ["lab"],
-    children: [{ content: "{n}주차 예비보고서", description: "", priority: 1, labels: [] }],
+    children: [
+      { id: "C1", content: "{n}주차 예비보고서", description: "", priority: 1, labels: [] },
+    ],
     ...overrides,
   });
   const PROJECTS = new Map([["화학실험", "P1"]]);

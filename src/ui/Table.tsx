@@ -61,6 +61,9 @@ export interface StickyTableProps<R> {
   onKey?: (input: string, row: R | undefined) => void;
   onSelect?: (row: R) => void;
   onCursor?: (row: R | undefined) => void;
+  // Inside a larger app, q goes back a screen instead of quitting.
+  onQuit?: () => void;
+  empty?: string;
 }
 
 export interface View {
@@ -93,6 +96,8 @@ export function StickyTable<R>({
   onKey,
   onSelect,
   onCursor,
+  onQuit,
+  empty,
 }: StickyTableProps<R>) {
   const { exit } = useApp();
   const { columns: screenWidth, rows: screenHeight } = useWindowSize();
@@ -122,7 +127,7 @@ export function StickyTable<R>({
       if (delta) move((c) => c + delta);
       return;
     }
-    if (input === "q" || key.escape) return exit();
+    if (input === "q" || key.escape) return onQuit ? onQuit() : exit();
     if (input === "j" || key.downArrow) return move((c) => c + 1);
     if (input === "k" || key.upArrow) return move((c) => c - 1);
     if (key.pageDown || input === " " || (key.ctrl && input === "d")) {
@@ -141,6 +146,7 @@ export function StickyTable<R>({
   return (
     <Box flexDirection="column">
       {title ? <Text bold>{title}</Text> : null}
+      {!rows.length && empty ? <Text color={color.muted}>{empty}</Text> : null}
       <Table
         columns={columns}
         rows={rows}

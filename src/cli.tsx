@@ -7,6 +7,7 @@ import { disabled, lastRuns, recordRun, setEnabled } from "./core/features.ts";
 import { FEATURES } from "./features.ts";
 import { syncGithub } from "./github/feature.tsx";
 import { GRACE_DAYS } from "./github/reconcile.ts";
+import { initScript, SHELLS } from "./init.ts";
 import { registerRecur } from "./recur/commands.tsx";
 import { fail, printOps, Result, withOutput } from "./ui/command.tsx";
 import { type OutputFlags, outputOf, printJson, printStatic, showTable } from "./ui/output.tsx";
@@ -225,5 +226,15 @@ withOutput(
   );
   await showTable(table, output);
 });
+
+program
+  .command("init <shell>")
+  .description(`print shell setup: eval "$(tdx init zsh)" (${SHELLS.join(", ")})`)
+  .action((shell: string) => {
+    if (!(SHELLS as readonly string[]).includes(shell)) {
+      fail(outputOf(), `unsupported shell ${shell}`, `use one of ${SHELLS.join(", ")}`);
+    }
+    process.stdout.write(initScript([...FEATURES.map((f) => f.name), "status"]));
+  });
 
 await program.parseAsync();

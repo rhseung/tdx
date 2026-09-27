@@ -47,6 +47,7 @@ export function toTemplates(tasks: Task[]): TemplateTask[] {
       children: (children.get(task.id) ?? [])
         .sort((a, b) => a.childOrder - b.childOrder)
         .map((c) => ({
+          id: c.id,
           content: c.content,
           description: c.description,
           priority: c.priority,
