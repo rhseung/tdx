@@ -1,11 +1,69 @@
-# gh-todoist-sync
+# tdx
 
-GitHub에서 로그인한 사용자에게 assign 된 issue와 PR을 Todoist로 옮깁니다.
+Todoist를 쓰면서 부족했던 기능을 채우는 개인 툴킷입니다. `td` CLI를 확장하는 느낌으로
+쓰도록 만들었습니다. 출력은 Ink로 그리고, 파이프로 넘기면 fzf가 읽기 좋은 평문으로 바뀝니다.
+
+| 기능 | 명령 | 하는 일 |
+| --- | --- | --- |
+| GitHub 동기화 | `tdx gh sync` | 나에게 assign 된 issue와 PR을 Todoist로 옮깁니다 |
+
+launchd 에이전트가 `tdx run`을 120초마다 호출해서 켜 둔 기능을 모두 한 번씩 돌립니다.
+한 기능이 실패해도 나머지는 계속 돕니다.
+
+## 설치
+
+```bash
+mise install          # bun, fnox
+bun install
+bun link              # tdx 를 PATH 에 올림
+tdx install           # launchd 등록, 120초마다 실행
+```
+
+`gh`와 `td`에 로그인되어 있으면 따로 설정할 항목이 없습니다. 토큰을 따로 두고 싶으면
+fnox에 넣습니다. `fnox.toml`에 `TODOIST_API_TOKEN`과 `GITHUB_TOKEN`이 선언되어 있고,
+`fnox exec -- tdx ...`로 실행하면 그 값을 먼저 씁니다. launchd 에이전트는 fnox를 거치지
+않고 `gh`와 `td`의 토큰을 씁니다. 백그라운드에서 1Password 인증 창이 뜨면 안 되기 때문입니다.
+
+설치는 checkout 한 위치 한 곳만 유지합니다. state 파일이 두 벌이 되면 Todoist에도 tree가
+두 개 생기기 때문입니다.
+
+## 명령
+
+```bash
+tdx run                     # 켜 둔 기능을 모두 한 번 실행 (launchd 가 부르는 명령)
+tdx run --dry-run --only gh # 계획만 보기, 기능 골라 돌리기
+tdx gh sync --dry-run       # 실행 계획만 출력하고 아무것도 쓰지 않음
+tdx gh sync --force         # 대량 완료 가드 해제
+tdx gh sync --grace 14      # 빈 section 유예 기간 (기본 7일)
+tdx status                  # 에이전트 상태와 기능별 마지막 실행 결과
+tdx enable gh / disable gh  # tdx run 에 넣고 빼기
+tdx install / uninstall     # launchd 등록과 해제 (--interval 로 주기 조절)
+```
+
+로그는 `~/Library/Logs/tdx.log`에 기록됩니다.
+
+## 출력
+
+모든 명령은 세 가지 방식 중 하나로 출력합니다.
+
+| 상황 | 출력 |
+| --- | --- |
+| 터미널 | Ink 화면. 표는 한 화면에 들어가면 그대로 출력하고, 넘치면 머리행을 고정한 스크롤 뷰어로 엽니다 |
+| `--json` | 스크립트가 읽을 JSON |
+| 파이프, launchd | 한 줄에 레코드 하나. 첫 열은 id이고 열은 탭으로 나눕니다 |
+
+스크롤 뷰어에서는 `j`/`k`, 방향키, 마우스 휠, `PgUp`/`PgDn`, `g`/`G`로 움직이고 `q`로
+나갑니다. `--no-pager`를 주면 뷰어를 열지 않고 전부 출력합니다.
+
+평문은 fzf에 그대로 넘길 수 있게 맞춰 두었습니다. `--header`는 머리행을 한 줄 붙이므로
+`fzf --header-lines=1`과 함께 쓰고, `--color always`는 `fzf --ansi`에서 색을 살립니다.
+
+## GitHub 동기화
 
 동기화는 GitHub에서 Todoist로 향하는 한 방향으로만 이루어집니다. issue가 닫히거나
 assign이 해제되면 Todoist task도 완료 처리됩니다. not planned나 duplicate로 닫힌
-issue와 merge 되지 않고 닫힌 PR만 완료가 아니라 삭제합니다. 반대 방향으로는 동기화되지 않습니다. 즉, Todoist에서
-task를 완료해도 GitHub issue는 그대로 남습니다.
+issue와 merge 되지 않고 닫힌 PR만 완료가 아니라 삭제합니다. 반대 방향으로는 동기화되지
+않습니다. 즉, Todoist에서 task를 완료해도 GitHub issue는 그대로 남습니다.
 
 ```
 GitHub                          <- 부모 project
@@ -21,35 +79,7 @@ task 이름은 `[#61](https://github.com/.../issues/61) 비밀번호 찾기 페�
 형태입니다. Todoist가 markdown을 렌더링하므로 `#61`을 누르면 해당 issue로 이동합니다.
 repo 이름은 section에 이미 표시되므로 task 이름에서는 제외했습니다.
 
-## 설치
-
-```bash
-uv sync
-uv run gh-todoist-sync install   # launchd 등록, 120초마다 실행
-```
-
-`gh`와 `td`에 로그인되어 있으면 따로 설정할 항목이 없습니다. 다만 `GITHUB_TOKEN`과
-`TODOIST_API_TOKEN` 환경변수를 지정하면 그 값을 먼저 사용합니다.
-
-설치는 checkout 한 위치 한 곳만 유지합니다. `uv tool install`로 한 벌 더 설치하면 state
-파일이 두 개가 되고 Todoist에도 tree가 두 개 생성되기 때문입니다.
-
-## 명령
-
-```bash
-uv run gh-todoist-sync                  # sync와 동일
-uv run gh-todoist-sync sync --dry-run   # 실행 계획만 출력하고 아무것도 쓰지 않음
-uv run gh-todoist-sync sync --force     # 대량 완료 가드 해제
-uv run gh-todoist-sync sync --grace 14  # 빈 section 유예 기간 (기본 7일)
-uv run gh-todoist-sync install          # launchd 등록 (--interval로 주기 조절)
-uv run gh-todoist-sync uninstall        # 해제
-uv run gh-todoist-sync status           # 동작 여부, 마지막 종료 코드
-```
-
-launchd는 `.venv/bin/gh-todoist-sync`를 직접 호출하므로 `uv run`이 붙지 않습니다.
-로그는 `~/Library/Logs/gh-todoist-sync.log`에 기록됩니다.
-
-## 수집 대상
+### 수집 대상
 
 | 소스 | endpoint |
 | --- | --- |
@@ -72,7 +102,7 @@ archive 된 repo는 수집 대상에서 제외합니다. 어차피 손댈 수 �
 | 설명 | 열려 있는 의존 관계. `blocked by #39`, `blocks #30, #40` 꼴이고 다른 저장소는 `owner/repo#12` 로 적습니다 |
 | 마감일 | GitHub milestone의 `due_on` 값을 사용합니다. 값이 없으면 비워 둡니다 |
 
-## 정렬
+### 정렬
 
 같은 section 안에서 task는 이슈 번호가 아니라 의존 관계 순으로 놓입니다. 축이 셋입니다.
 
@@ -97,7 +127,7 @@ archive 된 repo는 수집 대상에서 제외합니다. 어차피 손댈 수 �
 REST 쪽에 순서를 세우는 자리가 없어서 재정렬만 sync 명령을 씁니다. 순서가 어긋난
 section에만 한 번씩 나갑니다.
 
-## 안전장치
+### 안전장치
 
 GitHub 호출이 하나라도 실패하면 Todoist에는 아무것도 기록하지 않습니다. 빈 응답을 목표
 상태로 잘못 인식해서 전부 완료 처리해 버리는 상황을 막기 위해서입니다.
@@ -122,11 +152,19 @@ state 이므로 완료로 남습니다.
 
 ## 상태 저장
 
-GitHub id와 Todoist id를 짝지어 checkout 루트의 `state.json`에 저장합니다. 이 파일은
-gitignore에 등록되어 있습니다.
+기능마다 checkout 루트의 `state/` 아래에 파일 하나씩을 둡니다. 이 디렉터리는 gitignore에
+등록되어 있습니다.
 
-이 파일을 잃어버리면 다음 실행에서 기존 tree를 인식하지 못하고 동일한 tree를 하나 더
-생성합니다. 머신 한 대에서만 실행한다고 가정하고 있습니다.
+| 파일 | 내용 |
+| --- | --- |
+| `github.json` | GitHub id와 Todoist id의 짝 |
+| `runs.json` | 기능별 마지막 실행 시각과 결과. `tdx status`가 읽습니다 |
+| `config.json` | `tdx disable`로 끈 기능 목록 |
+
+`github.json`을 잃어버리면 다음 실행에서 기존 tree를 인식하지 못하고 동일한 tree를 하나
+더 생성합니다. 머신 한 대에서만 실행한다고 가정하고 있습니다. Python 버전이 쓰던 루트의
+`state.json`은 처음 실행할 때 `state/github.json`으로 옮기고, 원본은
+`state.json.migrated`로 이름을 바꿔 남겨 둡니다.
 
 ## 제약
 
@@ -136,39 +174,38 @@ gitignore에 등록되어 있습니다.
 ## 개발
 
 ```bash
-uv sync
-uv run pytest        # 네트워크를 사용하지 않음
-uv run ruff check .
-uv run ruff format .
+bun install
+mise run check      # bun test, biome, tsc. 네트워크를 사용하지 않음
+bunx biome check --write .
 ```
 
 코드를 고치기 전에 launchd 를 먼저 내립니다.
 
 ```bash
-launchctl bootout gui/$(id -u)/local.gh-todoist-sync   # 고치기 전
-launchctl kickstart -k gui/$(id -u)/local.gh-todoist-sync   # 끝난 뒤
+tdx uninstall   # 고치기 전
+tdx install     # 끝난 뒤
 ```
 
-launchd 가 부르는 `.venv/bin/gh-todoist-sync` 는 이 저장소를 editable 로 가리킵니다.
-그래서 파일을 저장하는 순간부터 120초마다 작성 중인 코드가 실제 Todoist에 적용되고,
-`--dry-run` 으로 계획을 먼저 확인하려던 절차가 의미를 잃습니다.
+launchd 는 이 checkout 의 `src/cli.tsx`를 직접 실행합니다. 그래서 파일을 저장하는 순간부터
+120초마다 작성 중인 코드가 실제 Todoist에 적용되고, `--dry-run` 으로 계획을 먼저 확인하려던
+절차가 의미를 잃습니다.
 
-`reconcile.py`가 순수 함수로 작성되어 있어서 test가 가볍습니다. 이렇게 구현한 이유는
-각 모듈의 docstring에 적어 두었습니다.
+계산은 순수 함수로, 화면은 그 결과를 받아 그리는 Ink 컴포넌트로 나눠 두었습니다.
+`reconcile.ts`가 네트워크 없이 op 목록만 돌려주므로 test가 가볍습니다.
 
 ## 문제 해결
 
 ```bash
-uv run gh-todoist-sync status
-uv run gh-todoist-sync sync --dry-run   # 실행 계획 확인
-gh auth status                          # GitHub 인증
-td auth status                          # Todoist 인증
-tail -50 ~/Library/Logs/gh-todoist-sync.log
+tdx status
+tdx gh sync --dry-run   # 실행 계획 확인
+gh auth status          # GitHub 인증
+td auth status          # Todoist 인증
+tail -50 ~/Library/Logs/tdx.log
 ```
 
-처음부터 다시 만들려면 Todoist의 "GitHub" project와 `state.json`을 둘 다 삭제한 뒤에
+처음부터 다시 만들려면 Todoist의 "GitHub" project와 `state/github.json`을 둘 다 삭제한 뒤에
 한 번 실행합니다. 둘 중 하나만 삭제하면 안 됩니다. project만 삭제하면 존재하지 않는
-id를 가리키게 되고, `state.json`만 삭제하면 tree가 두 개로 늘어나기 때문입니다.
+id를 가리키게 되고, `state/github.json`만 삭제하면 tree가 두 개로 늘어나기 때문입니다.
 
 ## 라이선스
 

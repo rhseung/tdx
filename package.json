@@ -1,0 +1,28 @@
+{
+  "name": "tdx",
+  "version": "0.2.0",
+  "description": "A personal Todoist toolkit that extends the td CLI",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "Hyunseung Ryu <ryu@rhseung.me>",
+  "bin": {
+    "tdx": "src/cli.tsx"
+  },
+  "dependencies": {
+    "@inkjs/ui": "^2.0.0",
+    "chalk": "^6.0.1",
+    "cli-truncate": "^6.1.1",
+    "commander": "^15.0.0",
+    "ink": "^7.1.1",
+    "react": "^19.3.0",
+    "string-width": "^8.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.3.0",
+    "ink-testing-library": "^4.0.0",
+    "typescript": "^7.0.2"
+  }
+}

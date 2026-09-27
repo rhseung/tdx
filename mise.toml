@@ -1,3 +1,15 @@
 [tools]
 bun = "1.4.2"
 fnox = "1.35.2"
+
+[tasks.test]
+run = "bun test"
+
+[tasks.lint]
+run = "bunx biome check ."
+
+[tasks.typecheck]
+run = "bunx tsc --noEmit"
+
+[tasks.check]
+depends = ["test", "lint", "typecheck"]
