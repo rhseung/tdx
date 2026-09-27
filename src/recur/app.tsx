@@ -3,10 +3,12 @@
 // leave when it closes.
 
 import { Spinner } from "@inkjs/ui";
-import { Box, Text, useApp, useInput } from "ink";
-import { useCallback, useState } from "react";
+import { Box, Text, useInput } from "ink";
+import { useCallback, useRef, useState } from "react";
 import { today } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
+import { AlternateScreen } from "../ui/alternate-screen.tsx";
+import type { Outcome } from "../ui/run.tsx";
 import { StickyTable } from "../ui/table.tsx";
 import { color, symbol } from "../ui/theme.ts";
 import { occurrenceColumns, templateColumns } from "./columns.ts";
@@ -17,32 +19,35 @@ import { deleteTemplate, ensureTemplatesProject, TEMPLATES_PROJECT } from "./io.
 
 export type Data = Awaited<ReturnType<typeof loadChecked>>;
 
-type Screen =
+export type Screen =
   | { kind: "list" }
   | { kind: "form"; id: string | null }
   | { kind: "preview"; id: string }
   | { kind: "confirm"; row: TemplateRow }
   | { kind: "busy"; label: string };
 
-export interface AppProps {
+interface AppProps {
   initial: Data;
   start: Screen;
   // Opened straight on a form (`new`, `edit`): closing it ends the program.
   standalone?: boolean;
-  onMessage: (message: string) => void;
+  // Called once, when the app is done, with what it did -- the app runs in
+  // the alternate screen, so these are the lines that stay behind.
+  onClose: (messages: string[]) => void;
 }
 
-export function RecurApp({ initial, start, standalone = false, onMessage }: AppProps) {
-  const { exit } = useApp();
+function RecurApp({ initial, start, standalone = false, onClose }: AppProps) {
+  const messages = useRef<string[]>([]);
+  const close = useCallback(() => onClose(messages.current), [onClose]);
   const [data, setData] = useState<Data>(initial);
   const [screen, setScreen] = useState<Screen>(start);
   const [flash, setFlash] = useState<string>("");
   const api: Api = data.api;
 
   const back = useCallback(() => {
-    if (standalone) exit();
+    if (standalone) close();
     else setScreen({ kind: "list" });
-  }, [standalone, exit]);
+  }, [standalone, close]);
 
   const busy = async (label: string, work: () => Promise<string>) => {
     setScreen({ kind: "busy", label });
@@ -50,11 +55,11 @@ export function RecurApp({ initial, start, standalone = false, onMessage }: AppP
       const message = await work();
       setData(await loadChecked());
       setFlash(message);
-      onMessage(message);
+      messages.current.push(message);
     } catch (error) {
       setFlash(`${symbol.fail} ${error instanceof Error ? error.message : String(error)}`);
     }
-    if (standalone) exit();
+    if (standalone) close();
     else setScreen({ kind: "list" });
   };
 
@@ -127,6 +132,7 @@ export function RecurApp({ initial, start, standalone = false, onMessage }: AppP
         reserved={flash ? 1 : 0}
         empty="No templates yet. Press n to make one."
         hint="n new  e edit  d delete  enter preview"
+        onQuit={close}
         onSelect={(row) => setScreen({ kind: "preview", id: row.id })}
         onKey={(input, row) => {
           setFlash("");
@@ -152,4 +158,37 @@ function Confirm({ question, onAnswer }: { question: string; onAnswer: (yes: boo
       {question} <Text color={color.muted}>(y/n)</Text>
     </Text>
   );
+}
+
+// The app full screen, and afterwards, in the scrollback, what it did.
+export function appOutcome(initial: Data, start: Screen, standalone: boolean): Outcome {
+  return () => (
+    <AlternateScreen>
+      {(close) => (
+        <RecurApp
+          initial={initial}
+          start={start}
+          standalone={standalone}
+          onClose={(messages) =>
+            close(
+              messages.length ? (
+                <Box flexDirection="column">
+                  {messages.map((m) => (
+                    <Text key={m}>{m}</Text>
+                  ))}
+                </Box>
+              ) : null,
+            )
+          }
+        />
+      )}
+    </AlternateScreen>
+  );
+}
+
+// Forms and pagers read keys; from a pipe there are none to read.
+export function requireTerminal(command: string): void {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error(`tdx recur ${command} needs a terminal`);
+  }
 }

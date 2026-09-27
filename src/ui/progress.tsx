@@ -3,7 +3,7 @@
 // is what the launchd log wants -- no frames, just outcomes.
 
 import { Spinner } from "@inkjs/ui";
-import { Box, render, Text } from "ink";
+import { Box, Text } from "ink";
 import { type ReactNode, useSyncExternalStore } from "react";
 import type { Output } from "./output.tsx";
 import { color, symbol } from "./theme.ts";
@@ -94,7 +94,9 @@ export class Progress {
     if (this.#output.mode !== "plain") return;
     const mark = step.state === "done" ? "ok" : "fail";
     const line = [new Date().toISOString(), mark, step.scope, step.label, step.detail];
-    process.stdout.write(`${line.join("\t")}\n`);
+    // stderr, so the steps never mix into data piped from stdout; launchd
+    // sends both to the same log.
+    process.stderr.write(`${line.join("\t")}\n`);
   }
 }
 
@@ -119,7 +121,7 @@ function StepLine({ step }: { step: Step }) {
   );
 }
 
-function ProgressView({ progress }: { progress: Progress }) {
+export function ProgressView({ progress }: { progress: Progress }) {
   useSyncExternalStore(progress.subscribe, progress.version);
   return (
     <Box flexDirection="column">
@@ -134,23 +136,4 @@ function ProgressView({ progress }: { progress: Progress }) {
       ) : null}
     </Box>
   );
-}
-
-// Runs `body` with a live step list; whatever it passes to `show` is drawn
-// under the steps and left on screen when the run ends.
-export async function withProgress<T>(
-  output: Output,
-  body: (progress: Progress) => Promise<T>,
-): Promise<T> {
-  const progress = new Progress(output);
-  if (output.mode !== "ink") return body(progress);
-  const app = render(<ProgressView progress={progress} />, { exitOnCtrlC: true });
-  try {
-    return await body(progress);
-  } finally {
-    // One more frame so the last state is what stays in the scrollback.
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    app.unmount();
-    await app.waitUntilExit();
-  }
 }

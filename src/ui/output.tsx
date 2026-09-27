@@ -3,8 +3,9 @@
 // a launchd log -- where a spinner's control codes would only pile up as junk.
 
 import chalk from "chalk";
-import { render, renderToString, Text } from "ink";
-import type { ReactElement } from "react";
+import { Box, Text } from "ink";
+import { AlternateScreen } from "./alternate-screen.tsx";
+import type { Outcome } from "./run.tsx";
 import { type Column, StickyTable, Table } from "./table.tsx";
 
 type Mode = "ink" | "json" | "plain";
@@ -17,10 +18,10 @@ export interface Output {
 }
 
 export interface OutputFlags {
-  json?: boolean;
-  color?: string;
-  header?: boolean;
-  pager?: boolean;
+  json?: boolean | undefined;
+  color?: string | undefined;
+  header?: boolean | undefined;
+  pager?: boolean | undefined;
 }
 
 export function outputOf(flags: OutputFlags = {}): Output {
@@ -39,17 +40,6 @@ export function outputOf(flags: OutputFlags = {}): Output {
 
 export function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
-}
-
-export function printStatic(element: ReactElement): void {
-  process.stdout.write(`${renderToString(element, { columns: process.stdout.columns || 100 })}\n`);
-}
-
-// Rendered in the alternate screen, so leaving it gives the terminal back as
-// it was -- the same contract as less.
-export async function runScreen(element: ReactElement): Promise<void> {
-  const app = render(element, { alternateScreen: true, exitOnCtrlC: true });
-  await app.waitUntilExit();
 }
 
 const hex = (value: string | undefined) =>
@@ -80,35 +70,40 @@ export function plainLines<R>(table: TableOutput<R>, output: Output): string[] {
   return [["ID", ...table.columns.map((c) => c.header.toUpperCase())].join("\t"), ...lines];
 }
 
-export async function showTable<R>(table: TableOutput<R>, output: Output): Promise<void> {
-  if (output.mode === "json") return printJson(table.rows.map(table.json));
+// JSON and plain lines are written straight away; at a terminal the table is
+// what the command leaves on screen. One that fits is printed and stays in the
+// scrollback, as gh does; one taller than the screen opens a pager, where the
+// header stays pinned.
+export function tableOutcome<R>(table: TableOutput<R>, output: Output): Outcome {
+  if (output.mode === "json") {
+    printJson(table.rows.map(table.json));
+    return null;
+  }
   if (output.mode === "plain") {
     for (const line of plainLines(table, output)) process.stdout.write(`${line}\n`);
-    return;
+    return null;
   }
-  if (!table.rows.length) {
-    printStatic(<Empty text={table.empty ?? "nothing to show"} />);
-    return;
-  }
-  // A table that fits is printed and left in the scrollback, as gh does; only
-  // one taller than the screen opens a pager, where the header stays pinned.
+  if (!table.rows.length) return <Text color="gray">{table.empty ?? "nothing to show"}</Text>;
   const fits = table.rows.length + 2 + (table.title ? 1 : 0) <= (process.stdout.rows || 24);
   if (fits || !output.pager) {
-    printStatic(
-      <>
-        {table.title ? <Title text={table.title} /> : null}
+    return (
+      <Box flexDirection="column">
+        {table.title ? <Text bold>{table.title}</Text> : null}
         <Table columns={table.columns} rows={table.rows} width={process.stdout.columns || 100} />
-      </>,
+      </Box>
     );
-    return;
   }
-  await runScreen(<StickyTable columns={table.columns} rows={table.rows} title={table.title} />);
-}
-
-function Title({ text }: { text: string }) {
-  return <Text bold>{text}</Text>;
-}
-
-function Empty({ text }: { text: string }) {
-  return <Text color="gray">{text}</Text>;
+  // The screen ends the command itself, once the terminal is back as it was.
+  return () => (
+    <AlternateScreen>
+      {(close) => (
+        <StickyTable
+          columns={table.columns}
+          rows={table.rows}
+          title={table.title}
+          onQuit={() => close()}
+        />
+      )}
+    </AlternateScreen>
+  );
 }

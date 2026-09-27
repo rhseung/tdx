@@ -1,11 +1,9 @@
-// Choosing one thing when a command was given no id.
-//
-// fzf, for those who live in it (TDX_PICKER=fzf), else an Ink list. Either
-// way the choice is made before any Ink screen renders, so the two never
-// fight over the terminal.
+// Choosing one thing when a command was given no id: fzf for those who live
+// in it (TDX_PICKER=fzf), else an Ink list.
 
 import { Select } from "@inkjs/ui";
-import { Box, render, Text, useApp, useInput } from "ink";
+import { Box, Text, useApp, useInput } from "ink";
+import { useEffect } from "react";
 import { color } from "./theme.ts";
 
 export interface Choice {
@@ -28,21 +26,9 @@ async function withFzf(
   return out.split("\t")[0]?.trim() || null;
 }
 
-function Picker({
-  choices,
-  prompt,
-  onPick,
-}: {
-  choices: Choice[];
-  prompt: string;
-  onPick: (id: string | null) => void;
-}) {
-  const { exit } = useApp();
+function SelectPicker({ choices, prompt, onPick }: PickProps) {
   useInput((_, key) => {
-    if (key.escape) {
-      onPick(null);
-      exit();
-    }
+    if (key.escape) onPick(null);
   });
   return (
     <Box flexDirection="column">
@@ -50,36 +36,38 @@ function Picker({
       <Select
         visibleOptionCount={12}
         options={choices.map((c) => ({ label: c.label, value: c.id }))}
-        onChange={(id) => {
-          onPick(id);
-          exit();
-        }}
+        onChange={onPick}
       />
       <Text color={color.muted}>{"↑↓ move · enter pick · esc cancel"}</Text>
     </Box>
   );
 }
 
-export async function pick(
-  choices: Choice[],
-  prompt: string,
-  preview?: string,
-): Promise<string | null> {
-  if (!choices.length) return null;
-  if (process.env["TDX_PICKER"] === "fzf" && Bun.which("fzf")) {
-    return withFzf(choices, prompt, preview);
-  }
-  let picked: string | null = null;
-  const app = render(
-    <Picker
-      choices={choices}
-      prompt={prompt}
-      onPick={(id) => {
-        picked = id;
-      }}
-    />,
-  );
-  await app.waitUntilExit();
-  app.clear();
-  return picked;
+// fzf needs the terminal to itself; Ink lends it and redraws after.
+function FzfPicker({ choices, prompt, preview, onPick }: PickProps) {
+  const { suspendTerminal } = useApp();
+  // Runs once: one pick per mount.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  useEffect(() => {
+    void (async () => {
+      let picked: string | null = null;
+      await suspendTerminal(async () => {
+        picked = await withFzf(choices, prompt, preview);
+      });
+      onPick(picked);
+    })();
+  }, []);
+  return null;
+}
+
+interface PickProps {
+  choices: Choice[];
+  prompt: string;
+  preview?: string | undefined;
+  onPick: (id: string | null) => void;
+}
+
+export function Pick(props: PickProps) {
+  const fzf = process.env["TDX_PICKER"] === "fzf" && Bun.which("fzf");
+  return fzf ? <FzfPicker {...props} /> : <SelectPicker {...props} />;
 }

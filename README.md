@@ -69,7 +69,7 @@ tdx install / uninstall     # launchd 등록과 해제 (--interval 로 주기 �
 | --- | --- |
 | 터미널 | Ink 화면. 표는 한 화면에 들어가면 그대로 출력하고, 넘치면 머리행을 고정한 스크롤 뷰어로 엽니다 |
 | `--json` | 스크립트가 읽을 JSON |
-| 파이프, launchd | 한 줄에 레코드 하나. 첫 열은 id이고 열은 탭으로 나눕니다 |
+| 파이프, launchd | 한 줄에 레코드 하나. 첫 열은 id이고 열은 탭으로 나눕니다. 진행 단계 로그는 stderr로 보내므로 stdout에는 데이터만 남습니다 |
 
 스크롤 뷰어에서는 `j`/`k`, 방향키, 마우스 휠, `PgUp`/`PgDn`, `g`/`G`로 움직이고 `q`로
 나갑니다. `--no-pager`를 주면 뷰어를 열지 않고 전부 출력합니다.
@@ -305,6 +305,12 @@ tdx install     # 끝난 뒤
 launchd 는 이 checkout 의 `src/cli.tsx`를 직접 실행합니다. 그래서 파일을 저장하는 순간부터
 120초마다 작성 중인 코드가 실제 Todoist에 적용되고, `--dry-run` 으로 계획을 먼저 확인하려던
 절차가 의미를 잃습니다.
+
+명령은 [Pastel](https://github.com/vadimdemedes/pastel)로 짭니다. `src/commands/` 아래 파일
+하나가 명령 하나이고(`recur/new.tsx`가 `tdx recur new`), 옵션과 인자는 zod 스키마로 선언합니다.
+파싱과 도움말은 그 스키마에서 나옵니다. 명령 본문은 `src/ui/run.tsx`의 `<Run>`이 돌립니다.
+작업을 실행하면서 단계를 그리고, 작업이 돌려준 화면을 마지막 프레임으로 남깁니다. 스크롤 뷰어와
+폼은 `<AlternateScreen>` 안에서 열려서, 닫으면 터미널이 열기 전 그대로 돌아옵니다.
 
 계산은 순수 함수로, 화면은 그 결과를 받아 그리는 Ink 컴포넌트로 나눠 두었습니다.
 `reconcile.ts`가 네트워크 없이 op 목록만 돌려주므로 test가 가볍습니다.
