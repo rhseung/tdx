@@ -73,6 +73,20 @@ const HINTS: Partial<Record<Field, string>> = {
   save: "enter or ctrl+s to save · esc to cancel",
 };
 
+// @inkjs/ui's Select takes an empty value for "nothing chosen": focus will not
+// leave an option whose value is "", and choosing it never fires onChange. So
+// "no project" needs a value of its own -- one no Todoist name can take.
+const NONE = "\u0000none";
+
+// The current choice is marked in its label rather than passed as the Select's
+// default: choosing the default again fires no onChange, which would leave the
+// picker open on the one choice that should simply close it.
+function choices([noneLabel, none]: [string, string], names: string[], current: string) {
+  return [{ label: noneLabel, value: none }, ...names.map((n) => ({ label: n, value: n }))].map(
+    (o) => (o.value === current ? { ...o, label: `${o.label} ·` } : o),
+  );
+}
+
 type Editing =
   | null
   | { kind: "text"; field: "title" | "notes" | "subtasks" }
@@ -314,13 +328,9 @@ export function Form({ heading, initial, projects, isNew, onSave, onCancel }: Fo
       <EscapeAware onEscape={() => setEditing(null)}>
         <Select
           visibleOptionCount={8}
-          defaultValue={draft.project ?? ""}
-          options={[
-            { label: "Inbox", value: "" },
-            ...projects.map((p) => ({ label: p, value: p })),
-          ]}
+          options={choices(["Inbox", NONE], projects, draft.project ?? NONE)}
           onChange={(picked) => {
-            set({ project: picked || null });
+            set({ project: picked === NONE ? null : picked });
             setEditing(null);
           }}
         />

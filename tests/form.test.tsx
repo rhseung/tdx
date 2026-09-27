@@ -158,3 +158,45 @@ describe("form", () => {
     view.unmount();
   });
 });
+
+test("the project picker leaves the Inbox, and closes on the current project", async () => {
+  const base: Draft = {
+    ...blankDraft("2026-09-01"),
+    title: "화학 실험 {n}주차",
+    weekdays: [4],
+    from: "2026-09-04",
+  };
+  const saves: Draft[] = [];
+  const view = render(
+    <Form
+      heading="Edit"
+      initial={base}
+      projects={["화학실험", "물리"]}
+      isNew={false}
+      onSave={(d) => saves.push(d)}
+      onCancel={() => {}}
+    />,
+  );
+  await tick();
+  // Up from the title wraps round: save, notes, subtasks, project.
+  for (let i = 0; i < 4; i++) view.stdin.write("\x1b[A");
+  await tick();
+  view.stdin.write(ENTER);
+  await tick();
+  view.stdin.write(DOWN); // Inbox -> 화학실험
+  await tick();
+  view.stdin.write(ENTER);
+  await tick();
+  view.stdin.write("\x13");
+  await tick();
+  expect(saves.at(-1)?.project).toBe("화학실험");
+  // Picking the Inbox again, which starts out current, still closes the picker.
+  view.stdin.write(ENTER);
+  await tick();
+  view.stdin.write(ENTER);
+  await tick();
+  view.stdin.write("\x13");
+  await tick();
+  expect(saves.at(-1)?.project).toBeNull();
+  view.unmount();
+});
