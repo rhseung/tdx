@@ -32,7 +32,7 @@ export const emptyRecurState = (): RecurState => ({ created: {}, reported: {} })
 // `lead` than a real backlog.
 export const CREATE_CAP = 30;
 
-export interface NewTask {
+interface NewTask {
   content: string;
   description: string;
   priority: number;

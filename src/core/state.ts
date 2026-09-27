@@ -16,7 +16,7 @@ export const CHECKOUT = resolve(import.meta.dir, "../..");
 // agent runs the checkout itself, so it lands in the project. A copy installed
 // elsewhere has no checkout to sit in, and falling back beats quietly starting
 // a second record inside node_modules.
-export function stateDir(): string {
+function stateDir(): string {
   const override = process.env["TDX_STATE_DIR"];
   if (override) return override;
   if (existsSync(join(CHECKOUT, "package.json"))) return join(CHECKOUT, "state");

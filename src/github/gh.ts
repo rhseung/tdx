@@ -21,7 +21,7 @@ const HEADERS = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version":
 // An issue I opened and nobody took is mine to do, so it belongs here; one taken
 // by someone else does not. `no:assignee` draws that line in the query -- the
 // assignee:@me half of "mine" already arrives through the REST assigned list.
-export const SEARCHES = [
+const SEARCHES = [
   "is:pr is:open review-requested:@me",
   "is:pr is:open author:@me",
   "is:issue is:open author:@me no:assignee",

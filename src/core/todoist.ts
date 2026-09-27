@@ -7,7 +7,7 @@ import { type Api, Client, type Params } from "./http.ts";
 import { page, parse, TodoistProject, TodoistTask } from "./schema.ts";
 import { cliToken } from "./token.ts";
 
-export const BASE_URL = "https://api.todoist.com/api/v1";
+const BASE_URL = "https://api.todoist.com/api/v1";
 const PAGE = 200;
 
 export function client(): Client {

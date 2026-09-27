@@ -73,7 +73,7 @@ export interface View {
 
 // Put the cursor on `target` and slide the window just enough to keep it in
 // sight, the way less does, rather than recentring on every step.
-export function scroll(view: View, target: number, height: number, count: number): View {
+function scroll(view: View, target: number, height: number, count: number): View {
   const cursor = Math.max(0, Math.min(count - 1, target));
   let offset = view.offset;
   if (cursor < offset) offset = cursor;

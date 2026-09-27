@@ -3,7 +3,7 @@
 
 export type Key = readonly (string | number)[];
 
-export function compareKeys(a: Key, b: Key): number {
+function compareKeys(a: Key, b: Key): number {
   for (let i = 0; i < Math.min(a.length, b.length); i++) {
     const x = a[i] as string | number;
     const y = b[i] as string | number;

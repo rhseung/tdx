@@ -17,7 +17,7 @@ export function loadState(path: string = statePath("recur")): RecurState {
   return readState(path, RecurStateFile);
 }
 
-export function saveState(state: RecurState, path: string = statePath("recur")): void {
+function saveState(state: RecurState, path: string = statePath("recur")): void {
   writeJson(path, state);
 }
 
@@ -31,7 +31,7 @@ export function byName(list: Project[]): Map<string, string> {
   return new Map(list.map((p) => [p.name.toLowerCase(), p.id]));
 }
 
-export function toTemplates(tasks: Task[]): TemplateTask[] {
+function toTemplates(tasks: Task[]): TemplateTask[] {
   const children = new Map<string, Task[]>();
   for (const task of tasks) {
     if (!task.parentId) continue;

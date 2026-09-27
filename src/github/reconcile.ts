@@ -93,7 +93,7 @@ export type Op =
   // Creates the label, or repaints one Todoist made by hand when first used.
   | { kind: "SetLabel"; id: string | null; name: string; color: string };
 
-export type Collection = "projects" | "sections";
+type Collection = "projects" | "sections";
 
 // Resolves an item to the project and section it belongs in.
 //

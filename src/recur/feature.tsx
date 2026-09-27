@@ -16,7 +16,7 @@ import {
   title,
 } from "./rule.ts";
 
-export function describeRecurOp(op: RecurOp): OpRow {
+function describeRecurOp(op: RecurOp): OpRow {
   switch (op.kind) {
     case "CreateInstance":
       return { change: "create", verb: "task", text: `${op.task.content}  ${op.deadline}` };
@@ -104,7 +104,7 @@ export function templateRows(checked: Checked[], state: RecurState, today: Day):
   });
 }
 
-export type OccurrenceStatus = "created" | "planned" | "skipped" | "past";
+type OccurrenceStatus = "created" | "planned" | "skipped" | "past";
 
 export interface OccurrenceRow {
   templateId: string;

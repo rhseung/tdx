@@ -31,7 +31,7 @@ export interface Ref {
   repo: string; // owner/name
 }
 
-export function mention(ref: Ref, here: string): string {
+function mention(ref: Ref, here: string): string {
   // Same repo reads as #12; anywhere else needs the full name to resolve.
   return ref.repo === here ? `#${ref.number}` : `${ref.repo}#${ref.number}`;
 }
@@ -54,7 +54,7 @@ export interface Item {
   blocking: Ref[];
 }
 
-export function fullRepo(item: Item): string {
+function fullRepo(item: Item): string {
   return `${item.ownerLogin}/${item.repoName}`;
 }
 

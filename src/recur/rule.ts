@@ -27,7 +27,7 @@ export const DEFAULT_LEAD = 7;
 // Rule lines come first; anything after this line is a note copied into each
 // task. Without a separator a typo such as `evrey:` would pass as a note and
 // the template would silently fall back to defaults.
-export const NOTES = "---";
+const NOTES = "---";
 
 // Korean day names too: the syllable is how a timetable writes it.
 // biome-ignore format: one weekday per line reads as a table
@@ -153,7 +153,7 @@ export function parse(description: string): Parsed {
   };
 }
 
-export function formatEvery(every: Every): string {
+function formatEvery(every: Every): string {
   const unit = every.kind === "monthly" ? "month" : "week";
   const prefix =
     every.interval > 1 ? `${every.interval} ${unit}s ` : every.kind === "monthly" ? "month " : "";

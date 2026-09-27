@@ -23,7 +23,7 @@ const FORGET_AFTER = 60;
 
 // Tasks with a deadline and without a due date; the window is applied here,
 // where "today" is the local calendar day rather than the server's.
-export const QUERY = "no date & !no deadline";
+const QUERY = "no date & !no deadline";
 
 export interface NudgeState {
   nudged: Record<string, Day>; // task id -> the day it was given a due date
@@ -72,7 +72,7 @@ export async function candidates(api: Api): Promise<Task[]> {
   return (await allPages(api, "/tasks/filter", TodoistTask, { query: QUERY })).map(toTask);
 }
 
-export function describeNudge(n: Nudge): OpRow {
+function describeNudge(n: Nudge): OpRow {
   return { change: "update", verb: "today", text: `${n.content}  deadline ${n.deadline}` };
 }
 

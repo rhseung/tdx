@@ -14,25 +14,13 @@ export const color = {
   meta: "gray",
 } as const;
 
-// API priority 4 is the UI's p1.
-export const priorityColor: Record<number, string> = {
-  4: "#d1453b",
-  3: "#eb8909",
-  2: "#246fe0",
-  1: "gray",
-};
-
 // Ink's Text types `color` without undefined, and exactOptionalPropertyTypes
 // holds it to that, so an optional colour is passed only when there is one.
 export const tint = (value: string | undefined): { color?: string } =>
   value ? { color: value } : {};
 
-export const priorityLabel = (apiPriority: number): string => `p${5 - apiPriority}`;
-
 export const symbol = {
   ok: "✓",
   fail: "✗",
-  pending: "·",
-  bullet: "•",
   arrow: "→",
 } as const;

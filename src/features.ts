@@ -9,7 +9,7 @@ import { runRecur } from "./recur/feature.tsx";
 import type { OpRow } from "./ui/parts.tsx";
 import type { Progress } from "./ui/progress.tsx";
 
-export interface FeatureResult {
+interface FeatureResult {
   ops: OpRow[];
   summary: string;
 }

@@ -26,7 +26,7 @@ export function parse<S extends z.ZodType>(schema: S, value: unknown, what: stri
   throw new SchemaError(`${what} is not in the expected shape: ${issues}`);
 }
 
-export const Day = z.string().refine(isDay, "not a YYYY-MM-DD date");
+const Day = z.string().refine(isDay, "not a YYYY-MM-DD date");
 // Todoist sends "" for an empty description, but null has been seen on older
 // objects; both mean the same thing here.
 const text = z

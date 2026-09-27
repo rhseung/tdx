@@ -4,10 +4,10 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-export const LABEL = "local.tdx";
+const LABEL = "local.tdx";
 export const LEGACY_LABEL = "local.gh-todoist-sync";
 const AGENTS = join(homedir(), "Library/LaunchAgents");
-export const PLIST = join(AGENTS, `${LABEL}.plist`);
+const PLIST = join(AGENTS, `${LABEL}.plist`);
 export const LOG = join(homedir(), "Library/Logs/tdx.log");
 export const DEFAULT_INTERVAL = 120;
 
@@ -26,7 +26,7 @@ function programArguments(): string[] {
 const xml = (s: string) =>
   s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-export function plist(interval: number = DEFAULT_INTERVAL): string {
+function plist(interval: number = DEFAULT_INTERVAL): string {
   const args = programArguments()
     .map((a) => `<string>${xml(a)}</string>`)
     .join("");
@@ -57,7 +57,7 @@ function launchctl(...args: string[]) {
   return { code: out.exitCode, stdout: out.stdout.toString(), stderr: out.stderr.toString() };
 }
 
-export function isLoaded(label: string = LABEL): boolean {
+function isLoaded(label: string = LABEL): boolean {
   return launchctl("print", `${domain()}/${label}`).code === 0;
 }
 

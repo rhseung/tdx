@@ -7,7 +7,7 @@ import { render, renderToString, Text } from "ink";
 import type { ReactElement } from "react";
 import { type Column, StickyTable, Table } from "./Table.tsx";
 
-export type Mode = "ink" | "json" | "plain";
+type Mode = "ink" | "json" | "plain";
 
 export interface Output {
   mode: Mode;

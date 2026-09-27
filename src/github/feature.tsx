@@ -19,7 +19,7 @@ export interface SyncOptions {
 // "[#42](https://...) fix thing" reads as "#42 fix thing" in a terminal.
 const plain = (content: string) => content.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
 
-export function describeOp(op: Op): OpRow {
+function describeOp(op: Op): OpRow {
   switch (op.kind) {
     case "CreateRoot":
       return { change: "create", verb: "project", text: "GitHub" };

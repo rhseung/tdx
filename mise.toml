@@ -11,5 +11,8 @@ run = "bunx biome check --error-on-warnings ."
 [tasks.typecheck]
 run = "bunx tsc --noEmit"
 
+[tasks.unused]
+run = "bunx knip --no-progress"
+
 [tasks.check]
-depends = ["test", "lint", "typecheck"]
+depends = ["test", "lint", "typecheck", "unused"]

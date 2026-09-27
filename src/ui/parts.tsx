@@ -1,18 +1,6 @@
 import { Box, Text } from "ink";
 import { fit, width } from "./text.ts";
-import { color, priorityColor, priorityLabel, symbol, tint } from "./theme.ts";
-
-export function Badge({ text, tint }: { text: string; tint: string }) {
-  return (
-    <Text color={tint} bold>
-      {text}
-    </Text>
-  );
-}
-
-export function PriorityBadge({ priority }: { priority: number }) {
-  return <Badge text={priorityLabel(priority)} tint={priorityColor[priority] ?? color.muted} />;
-}
+import { color, symbol, tint } from "./theme.ts";
 
 export function ErrorBox({ title, message }: { title: string; message: string }) {
   return (
@@ -53,7 +41,7 @@ export function Fields({ rows }: { rows: [string, React.ReactNode][] }) {
   );
 }
 
-export type Change = "create" | "update" | "move" | "complete" | "remove" | "meta";
+type Change = "create" | "update" | "move" | "complete" | "remove" | "meta";
 
 export interface OpRow {
   change: Change;
