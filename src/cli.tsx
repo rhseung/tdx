@@ -2,6 +2,7 @@
 import Pastel from "pastel";
 import pkg from "../package.json" with { type: "json" };
 import "./i18n/commander.ts";
+import "./positional-options.ts";
 import { t } from "./i18n/index.ts";
 
 // Outside a terminal stdout is data -- fzf input, a pipe, the launchd log --
