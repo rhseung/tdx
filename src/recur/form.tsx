@@ -104,21 +104,25 @@ export function Form({
     if (!errors.length) onSave(draft);
   };
 
+  // Each step is computed from the latest draft, not the one this render saw:
+  // a held-down arrow delivers several presses between renders, and each has
+  // to build on the last or all but one are lost.
+  const change = (next: (d: Draft) => Partial<Draft>) => setDraft((d) => ({ ...d, ...next(d) }));
   const adjust = (step: number) => {
     switch (focus) {
       case "repeats":
-        return set({ mode: draft.mode === "weekly" ? "monthly" : "weekly" });
+        return change((d) => ({ mode: d.mode === "weekly" ? "monthly" : "weekly" }));
       case "interval":
-        return set({ interval: Math.max(1, draft.interval + step) });
+        return change((d) => ({ interval: Math.max(1, d.interval + step) }));
       case "on":
         if (draft.mode === "monthly") {
-          return set({ monthDay: ((draft.monthDay - 1 + step + 31) % 31) + 1 });
+          return change((d) => ({ monthDay: ((d.monthDay - 1 + step + 31) % 31) + 1 }));
         }
         return setDayCursor((c) => (c + step + 7) % 7);
       case "lead":
-        return set({ lead: Math.max(0, draft.lead + step) });
+        return change((d) => ({ lead: Math.max(0, d.lead + step) }));
       case "due":
-        return set({ due: (draft.due ?? 0) + step });
+        return change((d) => ({ due: (d.due ?? 0) + step }));
       default:
         // Text, dates and the project change through enter, not the arrows.
         return;

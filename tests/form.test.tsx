@@ -377,3 +377,26 @@ test("the project picker leaves the Inbox, and closes on the current choice", as
   expect(saves.at(-1)?.project).toBeNull();
   view.unmount();
 });
+
+test("a held-down arrow counts every press, not just the last", async () => {
+  let saved: Draft | null = null;
+  const view = render(
+    <Form
+      heading="Edit"
+      initial={{ ...blankDraft("2026-09-01"), title: "t {n}", weekdays: [4], from: "2026-09-04" }}
+      projects={[]}
+      sections={() => []}
+      isNew={false}
+      onSave={(d) => (saved = d)}
+      onCancel={() => {}}
+    />,
+  );
+  await tick();
+  await focusOn(view, "Appears");
+  for (let i = 0; i < 5; i++) view.stdin.write("\x1b[C"); // all before the next render
+  await tick();
+  view.stdin.write("\x13");
+  await tick();
+  expect((saved as Draft | null)?.lead).toBe(12);
+  view.unmount();
+});
