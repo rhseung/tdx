@@ -435,11 +435,16 @@ describe("recur edits", () => {
   });
 });
 
-test("labels chosen in the form are the template's, and reach its weeks", async () => {
+test("labels and priority chosen in the form are the template's, and reach its weeks", async () => {
   const fake = new FakeTodoist();
   fake.project("Inbox", { inbox_project: true });
   const templates = fake.project("Templates");
-  const draft = { ...blankDraft(TODAY), title: "화학 실험 {n}주차", labels: ["lab", "화학"] };
+  const draft = {
+    ...blankDraft(TODAY),
+    title: "화학 실험 {n}주차",
+    labels: ["lab", "화학"],
+    priority: 3,
+  };
   fake.labels.push({ id: "L1", name: "lab", color: "blue" });
   const saved = await saveDraft(fake, draft, {
     templatesProjectId: templates["id"],
@@ -453,4 +458,7 @@ test("labels chosen in the form are the template's, and reach its weeks", async 
   await runRecur(quiet(), { api: fake, today: draft.from });
   const week = fake.tasks.find((t) => /\d주차$/.test(String(t["content"])));
   expect(week?.["labels"]).toEqual(["lab", "화학"]);
+  // p2, chosen in the form, on the template and so on each week.
+  expect(fake.tasks.find((t) => t["id"] === saved.id)?.["priority"]).toBe(3);
+  expect(week?.["priority"]).toBe(3);
 });

@@ -25,6 +25,7 @@ export interface Draft {
   project: string | null;
   section: string | null;
   labels: string[];
+  priority: number; // as the API counts: 4 is p1, 1 is p4
   subtasks: string[];
   notes: string;
 }
@@ -46,6 +47,7 @@ export function blankDraft(today: Day = localToday()): Draft {
     project: null,
     section: null,
     labels: [],
+    priority: 1,
     subtasks: [],
     notes: "",
   };
@@ -76,6 +78,7 @@ export function draftOf(checked: Checked): Draft {
       ? { mode: "monthly" as const, interval: every.interval, monthDay: every.day }
       : {}),
     labels: template.labels,
+    priority: template.priority,
     subtasks: template.children.map((c) => c.content),
     notes,
   };
@@ -138,13 +141,19 @@ export async function saveDraft(
   let id: string;
   if (existing) {
     id = existing.id;
-    await api.post(`/tasks/${id}`, { content, description, labels: draft.labels });
+    await api.post(`/tasks/${id}`, {
+      content,
+      description,
+      labels: draft.labels,
+      priority: draft.priority,
+    });
   } else {
     id = createdId(
       await api.post("/tasks", {
         content,
         description,
         labels: draft.labels,
+        priority: draft.priority,
         project_id: target.templatesProjectId,
       }),
     );

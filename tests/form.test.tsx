@@ -378,6 +378,61 @@ test("the project picker leaves the Inbox, and closes on the current choice", as
   view.unmount();
 });
 
+describe("form: priority", () => {
+  const draft: Draft = {
+    ...blankDraft("2026-09-01"),
+    title: "화학 실험 {n}주차",
+    weekdays: [4],
+    from: "2026-09-04",
+  };
+  const form = (onSave: (d: Draft) => void, initial: Draft = draft) =>
+    render(
+      <Form
+        heading="Edit"
+        initial={initial}
+        projects={[]}
+        sections={() => []}
+        isNew={false}
+        onSave={onSave}
+        onCancel={() => {}}
+      />,
+    );
+
+  test("a new template starts at p4, and 1-4 set it as Todoist writes it", async () => {
+    let saved: Draft | null = null;
+    const view = form((d) => (saved = d));
+    await tick();
+    await focusOn(view, "Priority");
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.priority).toBe(1); // p4
+    view.stdin.write("1");
+    await tick();
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.priority).toBe(4); // p1
+    view.unmount();
+  });
+
+  test("the arrows step towards p1 and stop at either end", async () => {
+    let saved: Draft | null = null;
+    const view = form((d) => (saved = d), { ...draft, priority: 3 });
+    await tick();
+    await focusOn(view, "Priority");
+    for (let i = 0; i < 3; i++) view.stdin.write("\x1b[C");
+    await tick();
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.priority).toBe(4);
+    for (let i = 0; i < 5; i++) view.stdin.write("\x1b[D");
+    await tick();
+    view.stdin.write("\x13");
+    await tick();
+    expect((saved as Draft | null)?.priority).toBe(1);
+    view.unmount();
+  });
+});
+
 test("a held-down arrow counts every press, not just the last", async () => {
   let saved: Draft | null = null;
   const view = render(

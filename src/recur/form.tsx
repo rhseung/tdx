@@ -13,7 +13,7 @@ import { t } from "../i18n/index.ts";
 import { DatePicker } from "../ui/date-picker.tsx";
 import { isMouse } from "../ui/mouse.ts";
 import { fit, width } from "../ui/text.ts";
-import { color, symbol, tint } from "../ui/theme.ts";
+import { color, priorityColor, symbol, tint } from "../ui/theme.ts";
 import { type Draft, ruleOf, TITLE_EMPTY, validate } from "./draft.ts";
 import { appearsOn, dueFor, type Occurrence, occurrences, take, title } from "./rule.ts";
 
@@ -30,6 +30,7 @@ const FIELDS = [
   "project",
   "section",
   "labels",
+  "priority",
   "subtasks",
   "notes",
   "save",
@@ -123,6 +124,9 @@ export function Form({
         return change((d) => ({ lead: Math.max(0, d.lead + step) }));
       case "due":
         return change((d) => ({ due: (d.due ?? 0) + step }));
+      case "priority":
+        // Right is towards p1, which is API priority 4.
+        return change((d) => ({ priority: Math.min(4, Math.max(1, d.priority + step)) }));
       default:
         // Text, dates and the project change through enter, not the arrows.
         return;
@@ -145,6 +149,10 @@ export function Form({
       if (key.downArrow || key.tab) return move(1);
       if (key.leftArrow) return adjust(-1);
       if (key.rightArrow) return adjust(1);
+      // 1-4 as written in Todoist: p1 is the highest, API priority 4.
+      if (focus === "priority" && /^[1-4]$/.test(input)) {
+        return set({ priority: 5 - Number(input) });
+      }
       if (focus === "on" && draft.mode === "weekly") {
         if (input === " ") return toggleDay(dayCursor);
         if (/^[1-7]$/.test(input)) return toggleDay(Number(input) - 1);
@@ -256,6 +264,22 @@ export function Form({
         return draft.project ?? t.recur.inbox;
       case "section":
         return draft.section ?? <Text color={color.muted}>{t.form.none}</Text>;
+      case "priority":
+        return (
+          <Text>
+            {[4, 3, 2, 1].map((p) => (
+              <Text key={p}>
+                <Text
+                  inverse={p === draft.priority}
+                  {...tint(priorityColor[p])}
+                  bold={p === draft.priority}
+                >
+                  {` p${5 - p} `}
+                </Text>{" "}
+              </Text>
+            ))}
+          </Text>
+        );
       case "labels":
         return draft.labels.length ? (
           draft.labels.map((l) => `@${l}`).join(" ")
