@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { render } from "ink-testing-library";
 import { isMouse, wheelDelta } from "../src/ui/mouse.ts";
 import { type Output, plainLines } from "../src/ui/output.tsx";
-import { type Column, StickyTable, Table } from "../src/ui/Table.tsx";
+import { type Column, StickyTable, Table } from "../src/ui/table.tsx";
 import { fit, fitColumns, width } from "../src/ui/text.ts";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 30));

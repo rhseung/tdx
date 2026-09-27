@@ -15,7 +15,7 @@ import { Fields } from "../ui/parts.tsx";
 import { pick } from "../ui/pick.tsx";
 import { withProgress } from "../ui/progress.tsx";
 import { color, symbol, tint } from "../ui/theme.ts";
-import { RecurApp } from "./App.tsx";
+import { RecurApp } from "./app.tsx";
 import { occurrenceColumns, templateColumns } from "./columns.ts";
 import { loadChecked, occurrenceRows, runRecur, templateRows } from "./feature.tsx";
 import { deleteTemplate, TEMPLATES_PROJECT } from "./io.ts";

@@ -5,7 +5,7 @@
 import chalk from "chalk";
 import { render, renderToString, Text } from "ink";
 import type { ReactElement } from "react";
-import { type Column, StickyTable, Table } from "./Table.tsx";
+import { type Column, StickyTable, Table } from "./table.tsx";
 
 type Mode = "ink" | "json" | "plain";
 

@@ -7,12 +7,12 @@ import { Box, Text, useApp, useInput } from "ink";
 import { useCallback, useState } from "react";
 import { today } from "../core/day.ts";
 import type { Api } from "../core/http.ts";
-import { StickyTable } from "../ui/Table.tsx";
+import { StickyTable } from "../ui/table.tsx";
 import { color, symbol } from "../ui/theme.ts";
 import { occurrenceColumns, templateColumns } from "./columns.ts";
 import { blankDraft, type Draft, draftOf, saveDraft } from "./draft.ts";
-import { Form } from "./Form.tsx";
 import { loadChecked, occurrenceRows, type TemplateRow, templateRows } from "./feature.tsx";
+import { Form } from "./form.tsx";
 import { deleteTemplate, ensureTemplatesProject, TEMPLATES_PROJECT } from "./io.ts";
 
 export type Data = Awaited<ReturnType<typeof loadChecked>>;

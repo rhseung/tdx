@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { render } from "ink-testing-library";
 import { blankDraft, type Draft, ruleOf, validate } from "../src/recur/draft.ts";
-import { Form } from "../src/recur/Form.tsx";
+import { Form } from "../src/recur/form.tsx";
 import { format, parse } from "../src/recur/rule.ts";
-import { DatePicker, monthGrid, shiftMonth } from "../src/ui/DatePicker.tsx";
+import { DatePicker, monthGrid, shiftMonth } from "../src/ui/date-picker.tsx";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 40));
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI is the point

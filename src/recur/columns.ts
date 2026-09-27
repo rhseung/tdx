@@ -1,4 +1,4 @@
-import type { Column } from "../ui/Table.tsx";
+import type { Column } from "../ui/table.tsx";
 import { color } from "../ui/theme.ts";
 import type { OccurrenceRow, TemplateRow } from "./feature.tsx";
 

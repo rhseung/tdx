@@ -9,7 +9,7 @@ import { Select, TextInput } from "@inkjs/ui";
 import { Box, Text, useInput } from "ink";
 import { type ReactNode, useMemo, useState } from "react";
 import { type Day, today as localToday } from "../core/day.ts";
-import { DatePicker } from "../ui/DatePicker.tsx";
+import { DatePicker } from "../ui/date-picker.tsx";
 import { isMouse } from "../ui/mouse.ts";
 import { fit } from "../ui/text.ts";
 import { color, symbol, tint } from "../ui/theme.ts";
