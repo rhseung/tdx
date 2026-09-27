@@ -126,7 +126,12 @@ function ProgressView({ progress }: { progress: Progress }) {
       {progress.steps.map((step) => (
         <StepLine key={step.id} step={step} />
       ))}
-      {progress.tail ? <Box marginTop={1}>{progress.tail}</Box> : null}
+      {progress.tail ? (
+        <Box marginTop={1}>
+          {/* Ink throws on text outside <Text>, and a plain message is a fair thing to show. */}
+          {typeof progress.tail === "string" ? <Text>{progress.tail}</Text> : progress.tail}
+        </Box>
+      ) : null}
     </Box>
   );
 }
